@@ -25,6 +25,7 @@ import (
 )
 
 type BrickEntry struct {
+	EntryStateMachine
 	Info BrickInfo
 }
 

@@ -48,6 +48,7 @@ var (
 )
 
 type VolumeEntry struct {
+	EntryStateMachine
 	Info   VolumeInfo
 	Bricks sort.StringSlice
 }

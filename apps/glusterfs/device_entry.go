@@ -26,6 +26,7 @@ import (
 )
 
 type DeviceEntry struct {
+	EntryStateMachine
 	Info   DeviceInfo
 	Bricks sort.StringSlice
 	NodeId string

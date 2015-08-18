@@ -41,7 +41,7 @@ func (a *App) DeviceAdd(w http.ResponseWriter, r *http.Request) {
 
 	// Check the node is in the db
 	var node *NodeEntry
-	err = a.db.View(func(tx *bolt.Tx) error {
+	err = a.db.Update(func(tx *bolt.Tx) error {
 		var err error
 		node, err = NewNodeEntryFromId(tx, msg.NodeId)
 		if err == ErrNotFound {
@@ -49,6 +49,18 @@ func (a *App) DeviceAdd(w http.ResponseWriter, r *http.Request) {
 			return err
 		} else if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		// Set to modify state
+		err = node.SetState(ENTRY_STATE_MODIFYING)
+		if err != nil {
+			return err
+		}
+
+		// Save node
+		err = node.Save(tx)
+		if err != nil {
 			return err
 		}
 
@@ -63,6 +75,9 @@ func (a *App) DeviceAdd(w http.ResponseWriter, r *http.Request) {
 
 	// Add device in an asynchronous function
 	a.asyncManager.AsyncHttpRedirectFunc(w, r, func() (string, error) {
+
+		// Set the node back to online state
+		defer NodeSetStateOnline(a.db, msg.NodeId)
 
 		// Create device entry
 		device := NewDeviceEntryFromRequest(&msg)

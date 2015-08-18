@@ -68,6 +68,7 @@ func (a *App) NodeAdd(w http.ResponseWriter, r *http.Request) {
 		// Get a node in the cluster to execute the Gluster peer command
 		peer_node, err = cluster.PeerNode(tx)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			logger.Err(err)
 			return err
 		}
@@ -112,6 +113,12 @@ func (a *App) NodeAdd(w http.ResponseWriter, r *http.Request) {
 			err = cluster.Save(tx)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return err
+			}
+
+			// Set node as online
+			err = node.SetState(ENTRY_STATE_READY)
+			if err != nil {
 				return err
 			}
 
@@ -182,7 +189,7 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 		peer_node, node *NodeEntry
 		cluster         *ClusterEntry
 	)
-	err := a.db.View(func(tx *bolt.Tx) error {
+	err := a.db.Update(func(tx *bolt.Tx) error {
 
 		// Access node entry
 		var err error
@@ -201,6 +208,20 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 			return ErrConflict
 		}
 
+		// Set the state accordingly
+		err = node.SetState(ENTRY_STATE_DELETING)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return err
+		}
+
+		// Save state
+		err = node.Save(tx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
 		// Access cluster information and peer node
 		cluster, err = NewClusterEntryFromId(tx, node.Info.ClusterId)
 		if err == ErrNotFound {
@@ -215,6 +236,7 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 		peer_node, err = cluster.PeerNode(tx)
 		if err != nil {
 			logger.Err(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return err
 		}
 		return nil
@@ -225,7 +247,15 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 
 	// Delete node asynchronously
 	logger.Info("Deleting node %v [%v]", node.ManageHostName(), node.Info.Id)
-	a.asyncManager.AsyncHttpRedirectFunc(w, r, func() (string, error) {
+	a.asyncManager.AsyncHttpRedirectFunc(w, r, func() (s string, e error) {
+
+		// If we have detected an error, move the node out of the deleting
+		// state into an online state.
+		defer func() {
+			if e != nil {
+				NodeSetStateReady(a.db, node.Info.Id)
+			}
+		}()
 
 		// Remove from trusted pool
 		if peer_node != nil {
@@ -249,6 +279,8 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 				logger.Err(err)
 				return err
 			}
+
+			// Remove node from list of nodes in the cluster
 			cluster.NodeDelete(node.Info.Id)
 
 			// Save cluster

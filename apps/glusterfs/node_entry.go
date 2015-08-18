@@ -26,8 +26,30 @@ import (
 )
 
 type NodeEntry struct {
+	EntryStateMachine
 	Info    NodeInfo
 	Devices sort.StringSlice
+}
+
+func NodeSetStateReady(db *bolt.DB, id string) error {
+	return a.db.Update(func(tx *bolt.Tx) error {
+		node, err := NewNodeEntryFromId(tx, id)
+		if err != nil {
+			return err
+		}
+
+		err = node.SetState(ENTRY_STATE_ONLINE)
+		if err != nil {
+			return err
+		}
+
+		err = node.Save(tx)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func NewNodeEntry() *NodeEntry {
