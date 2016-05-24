@@ -34,6 +34,7 @@ const (
 type DeviceEntry struct {
 	Info       DeviceInfo
 	Bricks     sort.StringSlice
+	State      ElementState
 	NodeId     string
 	ExtentSize uint64
 }
