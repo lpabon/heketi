@@ -42,7 +42,6 @@ func TestNewBrickEntry(t *testing.T) {
 	tests.Assert(t, b.Info.DeviceId == deviceid)
 	tests.Assert(t, b.Info.NodeId == nodeid)
 	tests.Assert(t, b.Info.Size == size)
-	tests.Assert(t, b.State == BRICK_STATE_NEW)
 }
 
 func TestBrickEntryMarshal(t *testing.T) {
