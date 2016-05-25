@@ -16,22 +16,22 @@
 
 package glusterfs
 
-type ElementState int
+type EntryState int
 
 const (
-	ELEMENT_STATE_UNKNOWN ElementState = iota
-	ELEMENT_STATE_ONLINE
-	ELEMENT_STATE_OFFLINE
-	ELEMENT_STATE_FAILED
+	EntryStateUnknown EntryState = iota
+	EntryStateOnline
+	EntryStateOffline
+	EntryStateFailed
 )
 
-func (e ElementState) String() string {
+func (e EntryState) String() string {
 	switch e {
-	case ELEMENT_STATE_ONLINE:
+	case EntryStateOnline:
 		return "Online"
-	case ELEMENT_STATE_OFFLINE:
+	case EntryStateOffline:
 		return "Offline"
-	case ELEMENT_STATE_FAILED:
+	case EntryStateFailed:
 		return "Failed"
 	}
 

@@ -34,7 +34,7 @@ const (
 type DeviceEntry struct {
 	Info       DeviceInfo
 	Bricks     sort.StringSlice
-	State      ElementState
+	State      EntryState
 	NodeId     string
 	ExtentSize uint64
 }
@@ -114,6 +114,22 @@ func (d *DeviceEntry) Deregister(tx *bolt.Tx) error {
 	}
 
 	return nil
+}
+
+func (d *DeviceEntry) isOnline() bool {
+	return d.State == EntryStateOnline
+}
+
+func (d *DeviceEntry) StateOnline() {
+	d.State = EntryStateOnline
+}
+
+func (d *DeviceEntry) StateOffline() {
+	d.State = EntryStateOffline
+}
+
+func (d *DeviceEntry) StateFailed() {
+	d.State = EntryStateFailed
 }
 
 func (d *DeviceEntry) SetId(id string) {

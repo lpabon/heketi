@@ -23,8 +23,17 @@ import (
 	"github.com/heketi/tests"
 )
 
-func TestElementStateString(t *testing.T) {
-	var e ElementState
+func TestEntryStateString(t *testing.T) {
+	var e EntryState
 
 	tests.Assert(t, "Unknown" == fmt.Sprintf("%v", e))
+
+	e = EntryStateOnline
+	tests.Assert(t, "Online" == fmt.Sprintf("%v", e))
+
+	e = EntryStateOffline
+	tests.Assert(t, "Offline" == fmt.Sprintf("%v", e))
+
+	e = EntryStateFailed
+	tests.Assert(t, "Failed" == fmt.Sprintf("%v", e))
 }
