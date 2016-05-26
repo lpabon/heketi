@@ -19,13 +19,13 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/heketi/heketi/apps/glusterfs"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
 	"net/http"
 	"time"
 )
 
-func (c *Client) NodeAdd(request *glusterfs.NodeAddRequest) (*glusterfs.NodeInfoResponse, error) {
+func (c *Client) NodeAdd(request *api.NodeAddRequest) (*api.NodeInfoResponse, error) {
 
 	// Marshal request to JSON
 	buffer, err := json.Marshal(request)
@@ -65,7 +65,7 @@ func (c *Client) NodeAdd(request *glusterfs.NodeAddRequest) (*glusterfs.NodeInfo
 	}
 
 	// Read JSON response
-	var node glusterfs.NodeInfoResponse
+	var node api.NodeInfoResponse
 	err = utils.GetJsonFromResponse(r, &node)
 	r.Body.Close()
 	if err != nil {
@@ -75,7 +75,7 @@ func (c *Client) NodeAdd(request *glusterfs.NodeAddRequest) (*glusterfs.NodeInfo
 	return &node, nil
 }
 
-func (c *Client) NodeInfo(id string) (*glusterfs.NodeInfoResponse, error) {
+func (c *Client) NodeInfo(id string) (*api.NodeInfoResponse, error) {
 
 	// Create request
 	req, err := http.NewRequest("GET", c.host+"/nodes/"+id, nil)
@@ -99,7 +99,7 @@ func (c *Client) NodeInfo(id string) (*glusterfs.NodeInfoResponse, error) {
 	}
 
 	// Read JSON response
-	var node glusterfs.NodeInfoResponse
+	var node api.NodeInfoResponse
 	err = utils.GetJsonFromResponse(r, &node)
 	r.Body.Close()
 	if err != nil {
@@ -144,7 +144,7 @@ func (c *Client) NodeDelete(id string) error {
 	return nil
 }
 
-func (c *Client) NodeState(id string, request *glusterfs.StateRequest) error {
+func (c *Client) NodeState(id string, request *api.StateRequest) error {
 	// Marshal request to JSON
 	buffer, err := json.Marshal(request)
 	if err != nil {
