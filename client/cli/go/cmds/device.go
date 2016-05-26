@@ -148,11 +148,13 @@ var deviceInfoCommand = &cobra.Command{
 		} else {
 			fmt.Fprintf(stdout, "Device Id: %v\n"+
 				"Name: %v\n"+
+				"State: %v\n"+
 				"Size (GiB): %v\n"+
 				"Used (GiB): %v\n"+
 				"Free (GiB): %v\n",
 				info.Id,
 				info.Name,
+				info.State,
 				info.Storage.Total/(1024*1024),
 				info.Storage.Used/(1024*1024),
 				info.Storage.Free/(1024*1024))

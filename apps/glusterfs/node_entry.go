@@ -227,10 +227,15 @@ func (n *NodeEntry) SetState(tx *bolt.Tx,
 	// Check current state
 	switch n.State {
 	case EntryStateFailed:
+		if s == EntryStateFailed {
+			return nil
+		}
 		return fmt.Errorf("Cannot reuse a failed node")
 
 	case EntryStateOnline:
 		switch s {
+		case EntryStateOnline:
+			return nil
 		case EntryStateFailed:
 		case EntryStateOffline:
 		default:
@@ -248,6 +253,8 @@ func (n *NodeEntry) SetState(tx *bolt.Tx,
 
 	case EntryStateOffline:
 		switch s {
+		case EntryStateOffline:
+			return nil
 		case EntryStateOnline:
 			// Add disks back
 			err := n.addAllDisksToRing(tx, a)

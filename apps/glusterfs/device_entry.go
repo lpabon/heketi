@@ -197,10 +197,15 @@ func (d *DeviceEntry) SetState(tx *bolt.Tx,
 	// Check current state
 	switch d.State {
 	case EntryStateFailed:
+		if s == EntryStateFailed {
+			return nil
+		}
 		return fmt.Errorf("Cannot reuse a failed device")
 
 	case EntryStateOnline:
 		switch s {
+		case EntryStateOnline:
+			return nil
 		case EntryStateFailed:
 		case EntryStateOffline:
 		default:
@@ -218,6 +223,8 @@ func (d *DeviceEntry) SetState(tx *bolt.Tx,
 
 	case EntryStateOffline:
 		switch s {
+		case EntryStateOffline:
+			return nil
 		case EntryStateOnline:
 			// Add disk back
 			err := d.addDeviceToRing(tx, a)

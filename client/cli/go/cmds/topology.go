@@ -210,11 +210,13 @@ var topologyInfoCommand = &cobra.Command{
 				for j, _ := range topoinfo.ClusterList[i].Nodes {
 					info := topoinfo.ClusterList[i].Nodes[j]
 					fmt.Fprintf(stdout, "\n\tNode Id: %v\n"+
+						"\tState: %v\n"+
 						"\tCluster Id: %v\n"+
 						"\tZone: %v\n"+
 						"\tManagement Hostname: %v\n"+
 						"\tStorage Hostname: %v\n",
 						info.Id,
+						info.State,
 						info.ClusterId,
 						info.Zone,
 						info.Hostnames.Manage[0],
@@ -225,11 +227,13 @@ var topologyInfoCommand = &cobra.Command{
 					for j, d := range info.DevicesInfo {
 						fmt.Fprintf(stdout, "\t\tId:%-35v"+
 							"Name:%-20v"+
+							"State:%-10v"+
 							"Size (GiB):%-8v"+
 							"Used (GiB):%-8v"+
 							"Free (GiB):%-8v\n",
 							d.Id,
 							d.Name,
+							d.State,
 							d.Storage.Total/(1024*1024),
 							d.Storage.Used/(1024*1024),
 							d.Storage.Free/(1024*1024))

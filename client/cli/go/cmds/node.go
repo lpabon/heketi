@@ -178,11 +178,13 @@ var nodeInfoCommand = &cobra.Command{
 			fmt.Fprintf(stdout, string(data))
 		} else {
 			fmt.Fprintf(stdout, "Node Id: %v\n"+
+				"State: %v\n"+
 				"Cluster Id: %v\n"+
 				"Zone: %v\n"+
 				"Management Hostname: %v\n"+
 				"Storage Hostname: %v\n",
 				info.Id,
+				info.State,
 				info.ClusterId,
 				info.Zone,
 				info.Hostnames.Manage[0],
