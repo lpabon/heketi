@@ -17,17 +17,19 @@
 package glusterfs
 
 import (
-	"github.com/boltdb/bolt"
-	"github.com/heketi/tests"
-	"github.com/heketi/utils"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/boltdb/bolt"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
+	"github.com/heketi/tests"
+	"github.com/heketi/utils"
 )
 
 func createSampleDeviceEntry(nodeid string, disksize uint64) *DeviceEntry {
 
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = nodeid
 	req.Name = "/dev/" + utils.GenUUID()[:8]
 
@@ -52,7 +54,7 @@ func TestNewDeviceEntry(t *testing.T) {
 }
 
 func TestNewDeviceEntryFromRequest(t *testing.T) {
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "123"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -70,7 +72,7 @@ func TestNewDeviceEntryFromRequest(t *testing.T) {
 }
 
 func TestNewDeviceEntryMarshal(t *testing.T) {
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -94,7 +96,7 @@ func TestNewDeviceEntryMarshal(t *testing.T) {
 }
 
 func TestDeviceEntryNewBrickEntry(t *testing.T) {
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -187,7 +189,7 @@ func TestDeviceEntryRegister(t *testing.T) {
 	defer app.Close()
 
 	// Create a device
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -212,7 +214,7 @@ func TestDeviceEntryRegister(t *testing.T) {
 	tests.Assert(t, err != nil)
 
 	// Create another device on a different node device
-	req = &DeviceAddRequest{}
+	req = &api.DeviceAddRequest{}
 	req.NodeId = "def"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -256,7 +258,7 @@ func TestNewDeviceEntryFromId(t *testing.T) {
 	defer app.Close()
 
 	// Create a device
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -296,7 +298,7 @@ func TestNewDeviceEntrySaveDelete(t *testing.T) {
 	defer app.Close()
 
 	// Create a device
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -393,7 +395,7 @@ func TestNewDeviceEntryNewInfoResponseBadBrickIds(t *testing.T) {
 	defer app.Close()
 
 	// Create a device
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -411,7 +413,7 @@ func TestNewDeviceEntryNewInfoResponseBadBrickIds(t *testing.T) {
 	})
 	tests.Assert(t, err == nil)
 
-	var info *DeviceInfoResponse
+	var info *api.DeviceInfoResponse
 	err = app.db.View(func(tx *bolt.Tx) error {
 		device, err := NewDeviceEntryFromId(tx, d.Info.Id)
 		if err != nil {
@@ -438,7 +440,7 @@ func TestNewDeviceEntryNewInfoResponse(t *testing.T) {
 	defer app.Close()
 
 	// Create a device
-	req := &DeviceAddRequest{}
+	req := &api.DeviceAddRequest{}
 	req.NodeId = "abc"
 	req.Name = "/dev/" + utils.GenUUID()
 
@@ -469,7 +471,7 @@ func TestNewDeviceEntryNewInfoResponse(t *testing.T) {
 	})
 	tests.Assert(t, err == nil)
 
-	var info *DeviceInfoResponse
+	var info *api.DeviceInfoResponse
 	err = app.db.View(func(tx *bolt.Tx) error {
 		device, err := NewDeviceEntryFromId(tx, d.Info.Id)
 		if err != nil {

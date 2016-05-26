@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	//	client "github.com/heketi/heketi/client/api/go-client"
 	"github.com/heketi/heketi/executors"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/tests"
 	"github.com/heketi/utils"
 )
@@ -101,9 +102,9 @@ func TestDeviceAddDelete(t *testing.T) {
 	// Add Cluster then a Node on the cluster
 	// node
 	cluster := NewClusterEntryFromRequest()
-	nodereq := &NodeAddRequest{
+	nodereq := &api.NodeAddRequest{
 		ClusterId: cluster.Info.Id,
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -346,9 +347,9 @@ func TestDeviceAddCleansUp(t *testing.T) {
 	// Add Cluster then a Node on the cluster
 	// node
 	cluster := NewClusterEntryFromRequest()
-	nodereq := &NodeAddRequest{
+	nodereq := &api.NodeAddRequest{
 		ClusterId: cluster.Info.Id,
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -485,7 +486,7 @@ func TestDeviceInfo(t *testing.T) {
 	tests.Assert(t, r.StatusCode == http.StatusOK)
 	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
-	var info DeviceInfoResponse
+	var info api.DeviceInfoResponse
 	err = utils.GetJsonFromResponse(r, &info)
 	tests.Assert(t, info.Id == device.Info.Id)
 	tests.Assert(t, info.Name == device.Info.Name)

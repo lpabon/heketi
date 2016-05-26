@@ -17,18 +17,20 @@
 package glusterfs
 
 import (
-	"github.com/boltdb/bolt"
-	"github.com/heketi/tests"
-	"github.com/heketi/utils"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/boltdb/bolt"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
+	"github.com/heketi/tests"
+	"github.com/heketi/utils"
 )
 
 func createSampleNodeEntry() *NodeEntry {
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage" + utils.GenUUID()[:8]},
 			Storage: []string{"storage" + utils.GenUUID()[:8]},
 		},
@@ -48,9 +50,9 @@ func TestNewNodeEntry(t *testing.T) {
 }
 
 func TestNewNodeEntryFromRequest(t *testing.T) {
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -70,9 +72,9 @@ func TestNewNodeEntryFromRequest(t *testing.T) {
 }
 
 func TestNewNodeEntryMarshal(t *testing.T) {
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -127,9 +129,9 @@ func TestNodeEntryRegister(t *testing.T) {
 	defer app.Close()
 
 	// Create a node
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -156,9 +158,9 @@ func TestNodeEntryRegister(t *testing.T) {
 	tests.Assert(t, err != nil)
 
 	// Create a new node on *different* cluster
-	req = &NodeAddRequest{
+	req = &api.NodeAddRequest{
 		ClusterId: "abc",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			// Same name as previous
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
@@ -177,9 +179,9 @@ func TestNodeEntryRegister(t *testing.T) {
 	tests.Assert(t, err != nil)
 
 	// Add a new node
-	req = &NodeAddRequest{
+	req = &api.NodeAddRequest{
 		ClusterId: "3",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage2"},
 			Storage: []string{"storage2"},
 		},
@@ -241,9 +243,9 @@ func TestNewNodeEntryFromId(t *testing.T) {
 	defer app.Close()
 
 	// Create a node
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -284,9 +286,9 @@ func TestNewNodeEntrySaveDelete(t *testing.T) {
 	defer app.Close()
 
 	// Create a node
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -383,9 +385,9 @@ func TestNewNodeEntryNewInfoResponse(t *testing.T) {
 	defer app.Close()
 
 	// Create a node
-	req := &NodeAddRequest{
+	req := &api.NodeAddRequest{
 		ClusterId: "123",
-		Hostnames: HostAddresses{
+		Hostnames: api.HostAddresses{
 			Manage:  []string{"manage"},
 			Storage: []string{"storage"},
 		},
@@ -400,7 +402,7 @@ func TestNewNodeEntryNewInfoResponse(t *testing.T) {
 	})
 	tests.Assert(t, err == nil)
 
-	var info *NodeInfoResponse
+	var info *api.NodeInfoResponse
 	err = app.db.View(func(tx *bolt.Tx) error {
 		node, err := NewNodeEntryFromId(tx, n.Info.Id)
 		if err != nil {

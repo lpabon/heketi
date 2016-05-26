@@ -21,12 +21,13 @@ import (
 	"encoding/gob"
 	"github.com/boltdb/bolt"
 	"github.com/heketi/heketi/executors"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
 	"github.com/lpabon/godbc"
 )
 
 type BrickEntry struct {
-	Info             BrickInfo
+	Info             api.BrickInfo
 	TpSize           uint64
 	PoolMetadataSize uint64
 }
@@ -98,8 +99,8 @@ func (b *BrickEntry) Delete(tx *bolt.Tx) error {
 	return EntryDelete(tx, b, b.Info.Id)
 }
 
-func (b *BrickEntry) NewInfoResponse(tx *bolt.Tx) (*BrickInfo, error) {
-	info := &BrickInfo{}
+func (b *BrickEntry) NewInfoResponse(tx *bolt.Tx) (*api.BrickInfo, error) {
+	info := &api.BrickInfo{}
 	*info = b.Info
 
 	return info, nil

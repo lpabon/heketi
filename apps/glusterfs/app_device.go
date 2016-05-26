@@ -18,15 +18,17 @@ package glusterfs
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
-	"net/http"
 )
 
 func (a *App) DeviceAdd(w http.ResponseWriter, r *http.Request) {
 
-	var msg DeviceAddRequest
+	var msg api.DeviceAddRequest
 	err := utils.GetJsonFromRequest(r, &msg)
 	if err != nil {
 		http.Error(w, "request unable to be parsed", 422)
@@ -166,7 +168,7 @@ func (a *App) DeviceInfo(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Get device information
-	var info *DeviceInfoResponse
+	var info *api.DeviceInfoResponse
 	err := a.db.View(func(tx *bolt.Tx) error {
 		entry, err := NewDeviceEntryFromId(tx, id)
 		if err == ErrNotFound {
@@ -322,7 +324,7 @@ func (a *App) DeviceSetState(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Unmarshal JSON
-	var msg StateRequest
+	var msg api.StateRequest
 	err := utils.GetJsonFromRequest(r, &msg)
 	if err != nil {
 		http.Error(w, "request unable to be parsed", 422)

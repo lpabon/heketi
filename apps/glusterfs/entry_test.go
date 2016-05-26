@@ -19,22 +19,23 @@ package glusterfs
 import (
 	"testing"
 
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/tests"
 )
 
 func TestEntryStates(t *testing.T) {
 	e := &Entry{}
 
-	tests.Assert(t, e.State == EntryStateUnknown)
+	tests.Assert(t, e.State == api.EntryStateUnknown)
 	tests.Assert(t, e.isOnline() == false)
 
-	e.State = EntryStateOnline
+	e.State = api.EntryStateOnline
 	tests.Assert(t, e.isOnline())
 
-	e.State = EntryStateOffline
+	e.State = api.EntryStateOffline
 	tests.Assert(t, e.isOnline() == false)
 
-	e.State = EntryStateFailed
+	e.State = api.EntryStateFailed
 	tests.Assert(t, e.isOnline() == false)
 
 }

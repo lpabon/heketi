@@ -21,16 +21,18 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"sort"
+
 	"github.com/boltdb/bolt"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
 	"github.com/lpabon/godbc"
-	"sort"
 )
 
 type NodeEntry struct {
 	Entry
 
-	Info    NodeInfo
+	Info    api.NodeInfo
 	Devices sort.StringSlice
 }
 
@@ -42,7 +44,7 @@ func NewNodeEntry() *NodeEntry {
 	return entry
 }
 
-func NewNodeEntryFromRequest(req *NodeAddRequest) *NodeEntry {
+func NewNodeEntryFromRequest(req *api.NodeAddRequest) *NodeEntry {
 	godbc.Require(req != nil)
 
 	node := NewNodeEntry()
@@ -222,22 +224,22 @@ func (n *NodeEntry) addAllDisksToRing(tx *bolt.Tx,
 
 func (n *NodeEntry) SetState(tx *bolt.Tx,
 	a Allocator,
-	s EntryState) error {
+	s api.EntryState) error {
 
 	// Check current state
 	switch n.State {
-	case EntryStateFailed:
-		if s == EntryStateFailed {
+	case api.EntryStateFailed:
+		if s == api.EntryStateFailed {
 			return nil
 		}
 		return fmt.Errorf("Cannot reuse a failed node")
 
-	case EntryStateOnline:
+	case api.EntryStateOnline:
 		switch s {
-		case EntryStateOnline:
+		case api.EntryStateOnline:
 			return nil
-		case EntryStateFailed:
-		case EntryStateOffline:
+		case api.EntryStateFailed:
+		case api.EntryStateOffline:
 		default:
 			return fmt.Errorf("Unknown state type: %v", s)
 		}
@@ -251,17 +253,17 @@ func (n *NodeEntry) SetState(tx *bolt.Tx,
 		// Save state
 		n.State = s
 
-	case EntryStateOffline:
+	case api.EntryStateOffline:
 		switch s {
-		case EntryStateOffline:
+		case api.EntryStateOffline:
 			return nil
-		case EntryStateOnline:
+		case api.EntryStateOnline:
 			// Add disks back
 			err := n.addAllDisksToRing(tx, a)
 			if err != nil {
 				return err
 			}
-		case EntryStateFailed:
+		case api.EntryStateFailed:
 			// Only thing to do here is to set the state
 		default:
 			return fmt.Errorf("Unknown state type: %v", s)
@@ -272,17 +274,17 @@ func (n *NodeEntry) SetState(tx *bolt.Tx,
 	return nil
 }
 
-func (n *NodeEntry) NewInfoReponse(tx *bolt.Tx) (*NodeInfoResponse, error) {
+func (n *NodeEntry) NewInfoReponse(tx *bolt.Tx) (*api.NodeInfoResponse, error) {
 
 	godbc.Require(tx != nil)
 
-	info := &NodeInfoResponse{}
+	info := &api.NodeInfoResponse{}
 	info.ClusterId = n.Info.ClusterId
 	info.Hostnames = n.Info.Hostnames
 	info.Id = n.Info.Id
 	info.Zone = n.Info.Zone
 	info.State = n.State
-	info.DevicesInfo = make([]DeviceInfoResponse, 0)
+	info.DevicesInfo = make([]api.DeviceInfoResponse, 0)
 
 	// Add each drive information
 	for _, deviceid := range n.Devices {

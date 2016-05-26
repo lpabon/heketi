@@ -16,14 +16,18 @@
 
 package glusterfs
 
+import (
+	"github.com/heketi/heketi/pkg/glusterfs/api"
+)
+
 type Entry struct {
-	State EntryState
+	State api.EntryState
 }
 
 func (e *Entry) isOnline() bool {
-	return e.State == EntryStateOnline
+	return e.State == api.EntryStateOnline
 }
 
 func (e *Entry) SetOnline() {
-	e.State = EntryStateOnline
+	e.State = api.EntryStateOnline
 }

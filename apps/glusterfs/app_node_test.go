@@ -19,10 +19,6 @@ package glusterfs
 import (
 	"bytes"
 	"errors"
-	"github.com/boltdb/bolt"
-	"github.com/gorilla/mux"
-	"github.com/heketi/tests"
-	"github.com/heketi/utils"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,6 +26,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/boltdb/bolt"
+	"github.com/gorilla/mux"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
+	"github.com/heketi/tests"
+	"github.com/heketi/utils"
 )
 
 func init() {
@@ -176,7 +178,7 @@ func TestPeerProbe(t *testing.T) {
 	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
 	// Read cluster information
-	var clusterinfo ClusterInfoResponse
+	var clusterinfo api.ClusterInfoResponse
 	err = utils.GetJsonFromResponse(r, &clusterinfo)
 	tests.Assert(t, err == nil)
 
@@ -281,7 +283,7 @@ func TestNodeAddDelete(t *testing.T) {
 	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
 	// Read cluster information
-	var clusterinfo ClusterInfoResponse
+	var clusterinfo api.ClusterInfoResponse
 	err = utils.GetJsonFromResponse(r, &clusterinfo)
 	tests.Assert(t, err == nil)
 
@@ -303,7 +305,7 @@ func TestNodeAddDelete(t *testing.T) {
 	tests.Assert(t, err == nil)
 
 	// Query queue until finished
-	var node NodeInfoResponse
+	var node api.NodeInfoResponse
 	for {
 		r, err = http.Get(location.String())
 		tests.Assert(t, err == nil)
@@ -547,7 +549,7 @@ func TestNodeInfo(t *testing.T) {
 	tests.Assert(t, r.StatusCode == http.StatusOK)
 	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
-	var info NodeInfoResponse
+	var info api.NodeInfoResponse
 	err = utils.GetJsonFromResponse(r, &info)
 	tests.Assert(t, info.Id == node.Info.Id)
 	tests.Assert(t, info.Hostnames.Manage[0] == node.Info.Hostnames.Manage[0])

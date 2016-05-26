@@ -24,6 +24,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/heketi/heketi/executors"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/tests"
 )
 
@@ -171,7 +172,7 @@ func TestNewBrickEntryNewInfoResponse(t *testing.T) {
 	})
 	tests.Assert(t, err == nil)
 
-	var info *BrickInfo
+	var info *api.BrickInfo
 	err = app.db.View(func(tx *bolt.Tx) error {
 		brick, err := NewBrickEntryFromId(tx, b.Id())
 		if err != nil {

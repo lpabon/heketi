@@ -18,14 +18,16 @@ package glusterfs
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
-	"net/http"
 )
 
 func (a *App) NodeAdd(w http.ResponseWriter, r *http.Request) {
-	var msg NodeAddRequest
+	var msg api.NodeAddRequest
 
 	err := utils.GetJsonFromRequest(r, &msg)
 	if err != nil {
@@ -168,7 +170,7 @@ func (a *App) NodeInfo(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Get Node information
-	var info *NodeInfoResponse
+	var info *api.NodeInfoResponse
 	err := a.db.View(func(tx *bolt.Tx) error {
 		entry, err := NewNodeEntryFromId(tx, id)
 		if err == ErrNotFound {
@@ -328,7 +330,7 @@ func (a *App) NodeSetState(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Unmarshal JSON
-	var msg StateRequest
+	var msg api.StateRequest
 	err := utils.GetJsonFromRequest(r, &msg)
 	if err != nil {
 		http.Error(w, "request unable to be parsed", 422)

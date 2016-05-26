@@ -21,10 +21,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"sort"
+
 	"github.com/boltdb/bolt"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
 	"github.com/lpabon/godbc"
-	"sort"
 )
 
 const (
@@ -34,7 +36,7 @@ const (
 type DeviceEntry struct {
 	Entry
 
-	Info       DeviceInfo
+	Info       api.DeviceInfo
 	Bricks     sort.StringSlice
 	NodeId     string
 	ExtentSize uint64
@@ -60,7 +62,7 @@ func NewDeviceEntry() *DeviceEntry {
 	return entry
 }
 
-func NewDeviceEntryFromRequest(req *DeviceAddRequest) *DeviceEntry {
+func NewDeviceEntryFromRequest(req *api.DeviceAddRequest) *DeviceEntry {
 	godbc.Require(req != nil)
 
 	device := NewDeviceEntry()
@@ -192,22 +194,22 @@ func (d *DeviceEntry) addDeviceToRing(tx *bolt.Tx,
 
 func (d *DeviceEntry) SetState(tx *bolt.Tx,
 	a Allocator,
-	s EntryState) error {
+	s api.EntryState) error {
 
 	// Check current state
 	switch d.State {
-	case EntryStateFailed:
-		if s == EntryStateFailed {
+	case api.EntryStateFailed:
+		if s == api.EntryStateFailed {
 			return nil
 		}
 		return fmt.Errorf("Cannot reuse a failed device")
 
-	case EntryStateOnline:
+	case api.EntryStateOnline:
 		switch s {
-		case EntryStateOnline:
+		case api.EntryStateOnline:
 			return nil
-		case EntryStateFailed:
-		case EntryStateOffline:
+		case api.EntryStateFailed:
+		case api.EntryStateOffline:
 		default:
 			return fmt.Errorf("Unknown state type: %v", s)
 		}
@@ -221,17 +223,17 @@ func (d *DeviceEntry) SetState(tx *bolt.Tx,
 		// Save state
 		d.State = s
 
-	case EntryStateOffline:
+	case api.EntryStateOffline:
 		switch s {
-		case EntryStateOffline:
+		case api.EntryStateOffline:
 			return nil
-		case EntryStateOnline:
+		case api.EntryStateOnline:
 			// Add disk back
 			err := d.addDeviceToRing(tx, a)
 			if err != nil {
 				return err
 			}
-		case EntryStateFailed:
+		case api.EntryStateFailed:
 			// Only thing to do here is to set the state
 		default:
 			return fmt.Errorf("Unknown state type: %v", s)
@@ -242,16 +244,16 @@ func (d *DeviceEntry) SetState(tx *bolt.Tx,
 	return nil
 }
 
-func (d *DeviceEntry) NewInfoResponse(tx *bolt.Tx) (*DeviceInfoResponse, error) {
+func (d *DeviceEntry) NewInfoResponse(tx *bolt.Tx) (*api.DeviceInfoResponse, error) {
 
 	godbc.Require(tx != nil)
 
-	info := &DeviceInfoResponse{}
+	info := &api.DeviceInfoResponse{}
 	info.Id = d.Info.Id
 	info.Name = d.Info.Name
 	info.Storage = d.Info.Storage
 	info.State = d.State
-	info.Bricks = make([]BrickInfo, 0)
+	info.Bricks = make([]api.BrickInfo, 0)
 
 	// Add each drive information
 	for _, id := range d.Bricks {

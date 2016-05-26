@@ -19,16 +19,18 @@ package glusterfs
 import (
 	"bytes"
 	"encoding/gob"
+	"sort"
+
 	"github.com/boltdb/bolt"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/utils"
 	"github.com/lpabon/godbc"
-	"sort"
 )
 
 type ClusterEntry struct {
 	Entry
 
-	Info ClusterInfoResponse
+	Info api.ClusterInfoResponse
 }
 
 func ClusterList(tx *bolt.Tx) ([]string, error) {
@@ -89,9 +91,9 @@ func (c *ClusterEntry) Delete(tx *bolt.Tx) error {
 	return EntryDelete(tx, c, c.Info.Id)
 }
 
-func (c *ClusterEntry) NewClusterInfoResponse(tx *bolt.Tx) (*ClusterInfoResponse, error) {
+func (c *ClusterEntry) NewClusterInfoResponse(tx *bolt.Tx) (*api.ClusterInfoResponse, error) {
 
-	info := &ClusterInfoResponse{}
+	info := &api.ClusterInfoResponse{}
 	*info = c.Info
 
 	return info, nil
