@@ -35,6 +35,8 @@ func init() {
 	deviceCommand.AddCommand(deviceAddCommand)
 	deviceCommand.AddCommand(deviceDeleteCommand)
 	deviceCommand.AddCommand(deviceInfoCommand)
+	deviceCommand.AddCommand(deviceEnableCommand)
+	deviceCommand.AddCommand(deviceDisableCommand)
 	deviceAddCommand.Flags().StringVar(&device, "name", "",
 		"Name of device to add")
 	deviceAddCommand.Flags().StringVar(&nodeId, "node", "",
@@ -171,5 +173,69 @@ var deviceInfoCommand = &cobra.Command{
 		}
 		return nil
 
+	},
+}
+
+var deviceEnableCommand = &cobra.Command{
+	Use:     "enable [device_id]",
+	Short:   "Allows device to go online",
+	Long:    "Allows device to go online",
+	Example: "  $ heketi-cli device online 886a86a868711bef83001",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		s := cmd.Flags().Args()
+
+		//ensure proper number of args
+		if len(s) < 1 {
+			return errors.New("device id missing")
+		}
+
+		//set clusterId
+		deviceId := cmd.Flags().Arg(0)
+
+		// Create a client
+		heketi := client.NewClient(options.Url, options.User, options.Key)
+
+		//set url
+		req := &glusterfs.StateRequest{
+			State: "online",
+		}
+		err := heketi.DeviceState(deviceId, req)
+		if err == nil {
+			fmt.Fprintf(stdout, "Device %v is now online\n", deviceId)
+		}
+
+		return err
+	},
+}
+
+var deviceDisableCommand = &cobra.Command{
+	Use:     "disable [device_id]",
+	Short:   "Disallow usage of a device by placing it offline",
+	Long:    "Disallow usage of a device by placing it offline",
+	Example: "  $ heketi-cli device offline 886a86a868711bef83001",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		s := cmd.Flags().Args()
+
+		//ensure proper number of args
+		if len(s) < 1 {
+			return errors.New("device id missing")
+		}
+
+		//set clusterId
+		deviceId := cmd.Flags().Arg(0)
+
+		// Create a client
+		heketi := client.NewClient(options.Url, options.User, options.Key)
+
+		//set url
+		req := &glusterfs.StateRequest{
+			State: "offline",
+		}
+		err := heketi.DeviceState(deviceId, req)
+		if err == nil {
+			fmt.Fprintf(stdout, "Device %v is now offline\n", deviceId)
+		}
+
+		return err
 	},
 }

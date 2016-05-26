@@ -134,3 +134,38 @@ func (c *Client) DeviceDelete(id string) error {
 
 	return nil
 }
+
+func (c *Client) DeviceState(id string,
+	request *glusterfs.StateRequest) error {
+
+	// Marshal request to JSON
+	buffer, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+
+	// Create a request
+	req, err := http.NewRequest("POST",
+		c.host+"/devices/"+id+"/state",
+		bytes.NewBuffer(buffer))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Set token
+	err = c.setToken(req)
+	if err != nil {
+		return err
+	}
+
+	// Get info
+	r, err := c.do(req)
+	if err != nil {
+		return err
+	}
+	if r.StatusCode != http.StatusOK {
+		return utils.GetErrorFromResponse(r)
+	}
+	return nil
+}

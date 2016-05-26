@@ -38,6 +38,8 @@ func init() {
 	nodeCommand.AddCommand(nodeAddCommand)
 	nodeCommand.AddCommand(nodeDeleteCommand)
 	nodeCommand.AddCommand(nodeInfoCommand)
+	nodeCommand.AddCommand(nodeEnableCommand)
+	nodeCommand.AddCommand(nodeDisableCommand)
 	nodeAddCommand.Flags().IntVar(&zone, "zone", -1, "The zone in which the node should reside")
 	nodeAddCommand.Flags().StringVar(&clusterId, "cluster", "", "The cluster in which the node should reside")
 	nodeAddCommand.Flags().StringVar(&managmentHostNames, "management-host-name", "", "Managment host name")
@@ -140,6 +142,70 @@ var nodeDeleteCommand = &cobra.Command{
 		err := heketi.NodeDelete(nodeId)
 		if err == nil {
 			fmt.Fprintf(stdout, "Node %v deleted\n", nodeId)
+		}
+
+		return err
+	},
+}
+
+var nodeEnableCommand = &cobra.Command{
+	Use:     "enable [node_id]",
+	Short:   "Allows node to go online",
+	Long:    "Allows node to go online",
+	Example: "  $ heketi-cli node online 886a86a868711bef83001",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		s := cmd.Flags().Args()
+
+		//ensure proper number of args
+		if len(s) < 1 {
+			return errors.New("Node id missing")
+		}
+
+		//set clusterId
+		nodeId := cmd.Flags().Arg(0)
+
+		// Create a client
+		heketi := client.NewClient(options.Url, options.User, options.Key)
+
+		//set url
+		req := &glusterfs.StateRequest{
+			State: "online",
+		}
+		err := heketi.NodeState(nodeId, req)
+		if err == nil {
+			fmt.Fprintf(stdout, "Node %v is now online\n", nodeId)
+		}
+
+		return err
+	},
+}
+
+var nodeDisableCommand = &cobra.Command{
+	Use:     "disable [node_id]",
+	Short:   "Disallow usage of a node by placing it offline",
+	Long:    "Disallow usage of a node by placing it offline",
+	Example: "  $ heketi-cli node offline 886a86a868711bef83001",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		s := cmd.Flags().Args()
+
+		//ensure proper number of args
+		if len(s) < 1 {
+			return errors.New("Node id missing")
+		}
+
+		//set clusterId
+		nodeId := cmd.Flags().Arg(0)
+
+		// Create a client
+		heketi := client.NewClient(options.Url, options.User, options.Key)
+
+		//set url
+		req := &glusterfs.StateRequest{
+			State: "offline",
+		}
+		err := heketi.NodeState(nodeId, req)
+		if err == nil {
+			fmt.Fprintf(stdout, "Node %v is now offline\n", nodeId)
 		}
 
 		return err
