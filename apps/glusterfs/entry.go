@@ -27,13 +27,3 @@ func (e *Entry) isOnline() bool {
 func (e *Entry) SetOnline() {
 	e.State = EntryStateOnline
 }
-
-func (e *Entry) SetState(s EntryState) error {
-	newstate, err := SetEntryState(s)
-	if err != nil {
-		return err
-	}
-	e.State = newstate
-
-	return nil
-}

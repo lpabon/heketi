@@ -108,7 +108,6 @@ type ClusterInfoResponse struct {
 	Id      string           `json:"id"`
 	Nodes   sort.StringSlice `json:"nodes"`
 	Volumes sort.StringSlice `json:"volumes"`
-	State   EntryState       `json:"state"`
 }
 
 type ClusterListResponse struct {

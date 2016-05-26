@@ -169,6 +169,102 @@ func (n *NodeEntry) Delete(tx *bolt.Tx) error {
 	return EntryDelete(tx, n, n.Info.Id)
 }
 
+func (n *NodeEntry) removeAllDisksFromRing(tx *bolt.Tx,
+	a Allocator) error {
+
+	cluster, err := NewClusterEntryFromId(tx, n.Info.ClusterId)
+	if err != nil {
+		return err
+	}
+
+	for _, deviceId := range n.Devices {
+		device, err := NewDeviceEntryFromId(tx, deviceId)
+		if err != nil {
+			return err
+		}
+
+		// Remove device
+		err = a.RemoveDevice(cluster, n, device)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (n *NodeEntry) addAllDisksToRing(tx *bolt.Tx,
+	a Allocator) error {
+
+	cluster, err := NewClusterEntryFromId(tx, n.Info.ClusterId)
+	if err != nil {
+		return err
+	}
+
+	// Add all devices
+	for _, deviceId := range n.Devices {
+		device, err := NewDeviceEntryFromId(tx, deviceId)
+		if err != nil {
+			return err
+		}
+
+		// Add device
+		if device.isOnline() {
+			err = a.AddDevice(cluster, n, device)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (n *NodeEntry) SetState(tx *bolt.Tx,
+	a Allocator,
+	s EntryState) error {
+
+	// Check current state
+	switch n.State {
+	case EntryStateFailed:
+		return fmt.Errorf("Cannot reuse a failed node")
+
+	case EntryStateOnline:
+		switch s {
+		case EntryStateFailed:
+		case EntryStateOffline:
+		default:
+			return fmt.Errorf("Unknown state type: %v", s)
+		}
+
+		// Remove all disks from Ring
+		err := n.removeAllDisksFromRing(tx, a)
+		if err != nil {
+			return err
+		}
+
+		// Save state
+		n.State = s
+
+	case EntryStateOffline:
+		switch s {
+		case EntryStateOnline:
+			// Add disks back
+			err := n.addAllDisksToRing(tx, a)
+			if err != nil {
+				return err
+			}
+		case EntryStateFailed:
+			// Only thing to do here is to set the state
+		default:
+			return fmt.Errorf("Unknown state type: %v", s)
+		}
+		n.State = s
+	}
+
+	return nil
+}
+
 func (n *NodeEntry) NewInfoReponse(tx *bolt.Tx) (*NodeInfoResponse, error) {
 
 	godbc.Require(tx != nil)

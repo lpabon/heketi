@@ -16,11 +16,6 @@
 
 package glusterfs
 
-import (
-	"fmt"
-	"strings"
-)
-
 type EntryState string
 
 const (
@@ -29,22 +24,3 @@ const (
 	EntryStateOffline EntryState = "offline"
 	EntryStateFailed  EntryState = "failed"
 )
-
-func NewEntryState(s string) (EntryState, error) {
-	newstate := EntryState(strings.ToLower(s))
-
-	switch newstate {
-	case EntryStateOnline:
-		fallthrough
-	case EntryStateOffline:
-		fallthrough
-	case EntryStateFailed:
-		return newstate, nil
-	default:
-		return "", fmt.Errorf("Unknown state requested: %v", s)
-	}
-}
-
-func SetEntryState(s EntryState) (EntryState, error) {
-	return NewEntryState(string(s))
-}

@@ -28,23 +28,13 @@ func TestEntryStates(t *testing.T) {
 	tests.Assert(t, e.State == EntryStateUnknown)
 	tests.Assert(t, e.isOnline() == false)
 
-	err := e.SetState("onLine")
-	tests.Assert(t, e.State == EntryStateOnline)
+	e.State = EntryStateOnline
 	tests.Assert(t, e.isOnline())
-	tests.Assert(t, err == nil)
 
-	err = e.SetState("offLIne")
-	tests.Assert(t, e.State == EntryStateOffline)
+	e.State = EntryStateOffline
 	tests.Assert(t, e.isOnline() == false)
-	tests.Assert(t, err == nil)
 
-	err = e.SetState("FAIled")
-	tests.Assert(t, e.State == EntryStateFailed)
+	e.State = EntryStateFailed
 	tests.Assert(t, e.isOnline() == false)
-	tests.Assert(t, err == nil)
 
-	err = e.SetState("blah")
-	tests.Assert(t, e.State == EntryStateFailed)
-	tests.Assert(t, e.isOnline() == false)
-	tests.Assert(t, err != nil)
 }

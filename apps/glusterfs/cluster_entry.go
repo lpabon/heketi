@@ -44,7 +44,6 @@ func NewClusterEntry() *ClusterEntry {
 	entry := &ClusterEntry{}
 	entry.Info.Nodes = make(sort.StringSlice, 0)
 	entry.Info.Volumes = make(sort.StringSlice, 0)
-	entry.SetOnline()
 
 	return entry
 }
@@ -94,7 +93,6 @@ func (c *ClusterEntry) NewClusterInfoResponse(tx *bolt.Tx) (*ClusterInfoResponse
 
 	info := &ClusterInfoResponse{}
 	*info = c.Info
-	info.State = c.State
 
 	return info, nil
 }
