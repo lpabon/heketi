@@ -18,16 +18,18 @@ package glusterfs
 
 import (
 	"bytes"
-	"github.com/boltdb/bolt"
-	"github.com/gorilla/mux"
-	"github.com/heketi/heketi/executors"
-	"github.com/heketi/tests"
-	"github.com/heketi/utils"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/boltdb/bolt"
+	"github.com/gorilla/mux"
+	//	client "github.com/heketi/heketi/client/api/go-client"
+	"github.com/heketi/heketi/executors"
+	"github.com/heketi/tests"
+	"github.com/heketi/utils"
 )
 
 func init() {
@@ -487,6 +489,7 @@ func TestDeviceInfo(t *testing.T) {
 	err = utils.GetJsonFromResponse(r, &info)
 	tests.Assert(t, info.Id == device.Info.Id)
 	tests.Assert(t, info.Name == device.Info.Name)
+	tests.Assert(t, info.State == "online")
 	tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
 	tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
 	tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
@@ -535,4 +538,132 @@ func TestDeviceDeleteErrors(t *testing.T) {
 	r, err = http.DefaultClient.Do(req)
 	tests.Assert(t, err == nil)
 	tests.Assert(t, r.StatusCode == http.StatusInternalServerError)
+}
+
+func TestDeviceState(t *testing.T) {
+	/*
+		tmpfile := tests.Tempfile()
+		defer os.Remove(tmpfile)
+
+		// Create the app
+		app := NewTestApp(tmpfile)
+		defer app.Close()
+		router := mux.NewRouter()
+		app.SetRoutes(router)
+
+		// Setup the server
+		ts := httptest.NewServer(router)
+		defer ts.Close()
+
+		// Create mock allocator
+		mockAllocator := NewMockAllocator(app.db)
+		app.allocator = mockAllocator
+
+		// Create a client
+		c := client.NewClientNoAuth(ts.URL)
+		tests.Assert(t, c != nil)
+
+		// Create Cluster
+		cluster, err := c.ClusterCreate()
+		tests.Assert(t, err == nil)
+
+		// Create Node
+		nodeReq := &NodeAddRequest{
+			Zone: 1,
+			Hostnames: {
+				Manage:  []string{"manage.host"},
+				Storage: []string{"storage.host"},
+			},
+			ClusterId: cluster.Id,
+		}
+		node, err := c.NodeAdd(nodeReq)
+		tests.Assert(t, err == nil)
+
+		// Add device
+		deviceReq := &DeviceAddRequest{
+			Name:   "/dev/fake1",
+			NodeId: node.Id,
+		}
+		device, err = c.DeviceAdd(deviceReq)
+		tests.Assert(t, err == nil)
+
+		// Get info
+		deviceInfo, err := c.DeviceInfo(device.Id)
+		tests.Assert(t, err == nil)
+		tests.Assert(t, deviceInfo.State == "online")
+
+		// Check that the device is in the ring
+		tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
+
+			// Set offline
+			request := []byte(`{
+				"state" : "offline"
+				}`)
+			r, err := http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
+				"application/json", bytes.NewBuffer(request))
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusOK)
+
+			// Get Device Info
+			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusOK)
+			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+
+			var info DeviceInfoResponse
+			err = utils.GetJsonFromResponse(r, &info)
+			tests.Assert(t, info.Id == device.Info.Id)
+			tests.Assert(t, info.Name == device.Info.Name)
+			tests.Assert(t, info.State == "offline")
+			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
+			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
+			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
+
+			// Set online again
+			request = []byte(`{
+				"state" : "online"
+				}`)
+			r, err = http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
+				"application/json", bytes.NewBuffer(request))
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusOK)
+
+			// Get Device Info
+			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusOK)
+			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+
+			err = utils.GetJsonFromResponse(r, &info)
+			tests.Assert(t, info.Id == device.Info.Id)
+			tests.Assert(t, info.Name == device.Info.Name)
+			tests.Assert(t, info.State == "online")
+			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
+			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
+			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
+
+			// Set to unknown state
+			request = []byte(`{
+				"state" : "blah"
+				}`)
+			r, err = http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
+				"application/json", bytes.NewBuffer(request))
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusBadRequest)
+
+			// Make sure the state did not change
+			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
+			tests.Assert(t, err == nil)
+			tests.Assert(t, r.StatusCode == http.StatusOK)
+			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+
+			err = utils.GetJsonFromResponse(r, &info)
+			tests.Assert(t, info.Id == device.Info.Id)
+			tests.Assert(t, info.Name == device.Info.Name)
+			tests.Assert(t, info.State == "online")
+			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
+			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
+			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
+	*/
+
 }

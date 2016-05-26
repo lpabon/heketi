@@ -36,7 +36,6 @@ func TestNewClusterEntry(t *testing.T) {
 	tests.Assert(t, c.Info.Nodes != nil)
 	tests.Assert(t, len(c.Info.Volumes) == 0)
 	tests.Assert(t, len(c.Info.Nodes) == 0)
-	tests.Assert(t, c.State == EntryStateOnline)
 }
 
 func TestNewClusterEntryFromRequest(t *testing.T) {
@@ -49,7 +48,6 @@ func TestNewClusterEntryFromRequest(t *testing.T) {
 	tests.Assert(t, c.Info.Nodes != nil)
 	tests.Assert(t, len(c.Info.Volumes) == 0)
 	tests.Assert(t, len(c.Info.Nodes) == 0)
-	tests.Assert(t, c.State == EntryStateOnline)
 
 }
 
@@ -76,7 +74,6 @@ func TestClusterEntryMarshal(t *testing.T) {
 	tests.Assert(t, um.Info.Volumes[0] == "3")
 	tests.Assert(t, um.Info.Volumes[1] == "4")
 	tests.Assert(t, um.Info.Volumes[2] == "5")
-	tests.Assert(t, um.State == EntryStateOnline)
 }
 
 func TestClusterEntryAddDeleteElements(t *testing.T) {
