@@ -16,24 +16,35 @@
 
 package glusterfs
 
-type EntryState int
-
-const (
-	EntryStateUnknown EntryState = iota
-	EntryStateOnline
-	EntryStateOffline
-	EntryStateFailed
+import (
+	"fmt"
+	"strings"
 )
 
-func (e EntryState) String() string {
-	switch e {
-	case EntryStateOnline:
-		return "Online"
-	case EntryStateOffline:
-		return "Offline"
-	case EntryStateFailed:
-		return "Failed"
-	}
+type EntryState string
 
-	return "Unknown"
+const (
+	EntryStateUnknown EntryState = ""
+	EntryStateOnline  EntryState = "online"
+	EntryStateOffline EntryState = "offline"
+	EntryStateFailed  EntryState = "failed"
+)
+
+func NewEntryState(s string) (EntryState, error) {
+	newstate := EntryState(strings.ToLower(s))
+
+	switch newstate {
+	case EntryStateOnline:
+		fallthrough
+	case EntryStateOffline:
+		fallthrough
+	case EntryStateFailed:
+		return newstate, nil
+	default:
+		return "", fmt.Errorf("Unknown state requested: %v", s)
+	}
+}
+
+func SetEntryState(s EntryState) (EntryState, error) {
+	return NewEntryState(string(s))
 }

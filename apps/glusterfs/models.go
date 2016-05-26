@@ -25,14 +25,9 @@ import (
 	"sort"
 )
 
-type Cluster struct {
-	Volumes []VolumeInfoResponse `json:"volumes"`
-	Nodes   []NodeInfoResponse   `json:"nodes"`
-	Id      string               `json:"id"`
-}
-
-type TopologyInfoResponse struct {
-	ClusterList []Cluster `json:"clusters"`
+// Common
+type StateRequest struct {
+	State EntryState `json:"state"`
 }
 
 // Storage values in KB
@@ -76,6 +71,7 @@ type DeviceInfo struct {
 
 type DeviceInfoResponse struct {
 	DeviceInfo
+	State  EntryState  `json:"state"`
 	Bricks []BrickInfo `json:"bricks"`
 }
 
@@ -93,14 +89,26 @@ type NodeInfo struct {
 
 type NodeInfoResponse struct {
 	NodeInfo
+	State       EntryState           `json:"state"`
 	DevicesInfo []DeviceInfoResponse `json:"devices"`
 }
 
 // Cluster
+type Cluster struct {
+	Volumes []VolumeInfoResponse `json:"volumes"`
+	Nodes   []NodeInfoResponse   `json:"nodes"`
+	Id      string               `json:"id"`
+}
+
+type TopologyInfoResponse struct {
+	ClusterList []Cluster `json:"clusters"`
+}
+
 type ClusterInfoResponse struct {
 	Id      string           `json:"id"`
 	Nodes   sort.StringSlice `json:"nodes"`
 	Volumes sort.StringSlice `json:"volumes"`
+	State   EntryState       `json:"state"`
 }
 
 type ClusterListResponse struct {
@@ -108,7 +116,6 @@ type ClusterListResponse struct {
 }
 
 // Durabilities
-
 type ReplicaDurability struct {
 	Replica int `json:"replica,omitempty"`
 }
@@ -119,7 +126,6 @@ type DisperseDurability struct {
 }
 
 // Volume
-
 type VolumeDurabilityInfo struct {
 	Type      string             `json:"type,omitempty"`
 	Replicate ReplicaDurability  `json:"replicate,omitempty"`

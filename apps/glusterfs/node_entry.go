@@ -28,6 +28,8 @@ import (
 )
 
 type NodeEntry struct {
+	Entry
+
 	Info    NodeInfo
 	Devices sort.StringSlice
 }
@@ -35,6 +37,7 @@ type NodeEntry struct {
 func NewNodeEntry() *NodeEntry {
 	entry := &NodeEntry{}
 	entry.Devices = make(sort.StringSlice, 0)
+	entry.SetOnline()
 
 	return entry
 }
@@ -175,6 +178,7 @@ func (n *NodeEntry) NewInfoReponse(tx *bolt.Tx) (*NodeInfoResponse, error) {
 	info.Hostnames = n.Info.Hostnames
 	info.Id = n.Info.Id
 	info.Zone = n.Info.Zone
+	info.State = n.State
 	info.DevicesInfo = make([]DeviceInfoResponse, 0)
 
 	// Add each drive information

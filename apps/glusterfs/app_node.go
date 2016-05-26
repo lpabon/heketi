@@ -321,3 +321,82 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 
 	})
 }
+
+/*
+func (a *App) NodeGetState(w http.ResponseWriter, r *http.Request) {
+	// Get the id from the URL
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	// Get node state
+	var s StateRequest
+	err := a.db.View(func(tx *bolt.Tx) error {
+		entry, err := NewNodeEntryFromId(tx, id)
+		if err == ErrNotFound {
+			http.Error(w, "Id not found", http.StatusNotFound)
+			return err
+		} else if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		s.State = entry.State
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	// Write msg
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(s); err != nil {
+		panic(err)
+	}
+}
+*/
+
+func (a *App) NodeSetState(w http.ResponseWriter, r *http.Request) {
+	// Get the id from the URL
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	// Unmarshal JSON
+	var msg StateRequest
+	err := utils.GetJsonFromRequest(r, &msg)
+	if err != nil {
+		http.Error(w, "request unable to be parsed", 422)
+		return
+	}
+
+	// Check state is supported
+	err = a.db.Update(func(tx *bolt.Tx) error {
+		entry, err := NewNodeEntryFromId(tx, id)
+		if err == ErrNotFound {
+			http.Error(w, "Id not found", http.StatusNotFound)
+			return err
+		} else if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		// Set state
+		err = entry.SetState(msg.State)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return err
+		}
+
+		// Save new state
+		err = entry.Save(tx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return
+	}
+}

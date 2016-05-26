@@ -32,9 +32,10 @@ const (
 )
 
 type DeviceEntry struct {
+	Entry
+
 	Info       DeviceInfo
 	Bricks     sort.StringSlice
-	State      EntryState
 	NodeId     string
 	ExtentSize uint64
 }
@@ -51,6 +52,7 @@ func DeviceList(tx *bolt.Tx) ([]string, error) {
 func NewDeviceEntry() *DeviceEntry {
 	entry := &DeviceEntry{}
 	entry.Bricks = make(sort.StringSlice, 0)
+	entry.SetOnline()
 
 	// Default to 4096KB
 	entry.ExtentSize = 4096
@@ -116,22 +118,6 @@ func (d *DeviceEntry) Deregister(tx *bolt.Tx) error {
 	return nil
 }
 
-func (d *DeviceEntry) isOnline() bool {
-	return d.State == EntryStateOnline
-}
-
-func (d *DeviceEntry) StateOnline() {
-	d.State = EntryStateOnline
-}
-
-func (d *DeviceEntry) StateOffline() {
-	d.State = EntryStateOffline
-}
-
-func (d *DeviceEntry) StateFailed() {
-	d.State = EntryStateFailed
-}
-
 func (d *DeviceEntry) SetId(id string) {
 	d.Info.Id = id
 }
@@ -180,6 +166,7 @@ func (d *DeviceEntry) NewInfoResponse(tx *bolt.Tx) (*DeviceInfoResponse, error) 
 	info.Id = d.Info.Id
 	info.Name = d.Info.Name
 	info.Storage = d.Info.Storage
+	info.State = d.State
 	info.Bricks = make([]BrickInfo, 0)
 
 	// Add each drive information

@@ -17,23 +17,31 @@
 package glusterfs
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/heketi/tests"
 )
 
 func TestEntryStateString(t *testing.T) {
-	var e EntryState
 
-	tests.Assert(t, "Unknown" == fmt.Sprintf("%v", e))
+	e, err := NewEntryState("blah")
+	tests.Assert(t, err != nil)
+	tests.Assert(t, e == EntryStateUnknown)
 
-	e = EntryStateOnline
-	tests.Assert(t, "Online" == fmt.Sprintf("%v", e))
+	e, err = NewEntryState("")
+	tests.Assert(t, err != nil)
+	tests.Assert(t, e == EntryStateUnknown)
 
-	e = EntryStateOffline
-	tests.Assert(t, "Offline" == fmt.Sprintf("%v", e))
+	e, err = NewEntryState("oNlinE")
+	tests.Assert(t, err == nil)
+	tests.Assert(t, e == EntryStateOnline)
 
-	e = EntryStateFailed
-	tests.Assert(t, "Failed" == fmt.Sprintf("%v", e))
+	e, err = NewEntryState("offlINE")
+	tests.Assert(t, err == nil)
+	tests.Assert(t, e == EntryStateOffline)
+
+	e, err = NewEntryState("FAIled")
+	tests.Assert(t, err == nil)
+	tests.Assert(t, e == EntryStateFailed)
+
 }
