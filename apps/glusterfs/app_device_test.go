@@ -21,12 +21,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
-	//	client "github.com/heketi/heketi/client/api/go-client"
+	client "github.com/heketi/heketi/client/api/go-client"
 	"github.com/heketi/heketi/executors"
 	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/heketi/tests"
@@ -542,129 +543,145 @@ func TestDeviceDeleteErrors(t *testing.T) {
 }
 
 func TestDeviceState(t *testing.T) {
-	/*
-		tmpfile := tests.Tempfile()
-		defer os.Remove(tmpfile)
+	tmpfile := tests.Tempfile()
+	defer os.Remove(tmpfile)
 
-		// Create the app
-		app := NewTestApp(tmpfile)
-		defer app.Close()
-		router := mux.NewRouter()
-		app.SetRoutes(router)
+	// Create the app
+	app := NewTestApp(tmpfile)
+	defer app.Close()
+	router := mux.NewRouter()
+	app.SetRoutes(router)
 
-		// Setup the server
-		ts := httptest.NewServer(router)
-		defer ts.Close()
+	// Setup the server
+	ts := httptest.NewServer(router)
+	defer ts.Close()
 
-		// Create mock allocator
-		mockAllocator := NewMockAllocator(app.db)
-		app.allocator = mockAllocator
+	// Create mock allocator
+	mockAllocator := NewMockAllocator(app.db)
+	app.allocator = mockAllocator
 
-		// Create a client
-		c := client.NewClientNoAuth(ts.URL)
-		tests.Assert(t, c != nil)
+	// Create a client
+	c := client.NewClientNoAuth(ts.URL)
+	tests.Assert(t, c != nil)
 
-		// Create Cluster
-		cluster, err := c.ClusterCreate()
-		tests.Assert(t, err == nil)
+	// Create Cluster
+	cluster, err := c.ClusterCreate()
+	tests.Assert(t, err == nil)
 
-		// Create Node
-		nodeReq := &NodeAddRequest{
-			Zone: 1,
-			Hostnames: {
-				Manage:  []string{"manage.host"},
-				Storage: []string{"storage.host"},
-			},
-			ClusterId: cluster.Id,
-		}
-		node, err := c.NodeAdd(nodeReq)
-		tests.Assert(t, err == nil)
+	// Create Node
+	nodeReq := &api.NodeAddRequest{
+		Zone:      1,
+		ClusterId: cluster.Id,
+	}
+	nodeReq.Hostnames.Manage = sort.StringSlice{"manage.host"}
+	nodeReq.Hostnames.Storage = sort.StringSlice{"storage.host"}
+	node, err := c.NodeAdd(nodeReq)
+	tests.Assert(t, err == nil)
 
-		// Add device
-		deviceReq := &DeviceAddRequest{
-			Name:   "/dev/fake1",
-			NodeId: node.Id,
-		}
-		device, err = c.DeviceAdd(deviceReq)
-		tests.Assert(t, err == nil)
+	// Add device
+	deviceReq := &api.DeviceAddRequest{}
+	deviceReq.Name = "/dev/fake1"
+	deviceReq.NodeId = node.Id
 
-		// Get info
-		deviceInfo, err := c.DeviceInfo(device.Id)
-		tests.Assert(t, err == nil)
-		tests.Assert(t, deviceInfo.State == "online")
+	err = c.DeviceAdd(deviceReq)
+	tests.Assert(t, err == nil)
 
-		// Check that the device is in the ring
-		tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
+	// Get node information again
+	node, err = c.NodeInfo(node.Id)
+	tests.Assert(t, err == nil)
 
-			// Set offline
-			request := []byte(`{
+	// Get device information
+	deviceId := node.DevicesInfo[0].Id
+	device, err := c.DeviceInfo(deviceId)
+	tests.Assert(t, err == nil)
+
+	// Get info
+	deviceInfo, err := c.DeviceInfo(device.Id)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, deviceInfo.State == "online")
+
+	// Check that the device is in the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 1)
+	tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
+
+	// Set offline
+	request := []byte(`{
 				"state" : "offline"
 				}`)
-			r, err := http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
-				"application/json", bytes.NewBuffer(request))
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusOK)
+	r, err := http.Post(ts.URL+"/devices/"+device.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
 
-			// Get Device Info
-			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusOK)
-			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+	// Check it was removed from the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 0)
 
-			var info DeviceInfoResponse
-			err = utils.GetJsonFromResponse(r, &info)
-			tests.Assert(t, info.Id == device.Info.Id)
-			tests.Assert(t, info.Name == device.Info.Name)
-			tests.Assert(t, info.State == "offline")
-			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
-			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
-			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
+	// Get Device Info
+	r, err = http.Get(ts.URL + "/devices/" + device.Id)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
-			// Set online again
-			request = []byte(`{
+	var info api.DeviceInfoResponse
+	err = utils.GetJsonFromResponse(r, &info)
+	tests.Assert(t, info.Id == device.Id)
+	tests.Assert(t, info.Name == device.Name)
+	tests.Assert(t, info.State == "offline")
+	tests.Assert(t, info.Storage.Free == device.Storage.Free)
+	tests.Assert(t, info.Storage.Used == device.Storage.Used)
+	tests.Assert(t, info.Storage.Total == device.Storage.Total)
+
+	// Set online again
+	request = []byte(`{
 				"state" : "online"
 				}`)
-			r, err = http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
-				"application/json", bytes.NewBuffer(request))
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusOK)
+	r, err = http.Post(ts.URL+"/devices/"+device.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
 
-			// Get Device Info
-			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusOK)
-			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+	// Check that the device is in the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 1)
+	tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
 
-			err = utils.GetJsonFromResponse(r, &info)
-			tests.Assert(t, info.Id == device.Info.Id)
-			tests.Assert(t, info.Name == device.Info.Name)
-			tests.Assert(t, info.State == "online")
-			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
-			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
-			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
+	// Get Device Info
+	r, err = http.Get(ts.URL + "/devices/" + device.Id)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
-			// Set to unknown state
-			request = []byte(`{
+	err = utils.GetJsonFromResponse(r, &info)
+	tests.Assert(t, info.Id == device.Id)
+	tests.Assert(t, info.Name == device.Name)
+	tests.Assert(t, info.State == "online")
+	tests.Assert(t, info.Storage.Free == device.Storage.Free)
+	tests.Assert(t, info.Storage.Used == device.Storage.Used)
+	tests.Assert(t, info.Storage.Total == device.Storage.Total)
+
+	// Set to unknown state
+	request = []byte(`{
 				"state" : "blah"
 				}`)
-			r, err = http.Post(ts.URL+"/devices/"+device.Info.Id+"/state",
-				"application/json", bytes.NewBuffer(request))
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusBadRequest)
+	r, err = http.Post(ts.URL+"/devices/"+device.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusBadRequest)
 
-			// Make sure the state did not change
-			r, err = http.Get(ts.URL + "/devices/" + device.Info.Id)
-			tests.Assert(t, err == nil)
-			tests.Assert(t, r.StatusCode == http.StatusOK)
-			tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
+	// Check that the device is still in the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 1)
+	tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
 
-			err = utils.GetJsonFromResponse(r, &info)
-			tests.Assert(t, info.Id == device.Info.Id)
-			tests.Assert(t, info.Name == device.Info.Name)
-			tests.Assert(t, info.State == "online")
-			tests.Assert(t, info.Storage.Free == device.Info.Storage.Free)
-			tests.Assert(t, info.Storage.Used == device.Info.Storage.Used)
-			tests.Assert(t, info.Storage.Total == device.Info.Storage.Total)
-	*/
+	// Make sure the state did not change
+	r, err = http.Get(ts.URL + "/devices/" + device.Id)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+	tests.Assert(t, r.Header.Get("Content-Type") == "application/json; charset=UTF-8")
 
+	err = utils.GetJsonFromResponse(r, &info)
+	tests.Assert(t, info.Id == device.Id)
+	tests.Assert(t, info.Name == device.Name)
+	tests.Assert(t, info.State == "online")
+	tests.Assert(t, info.Storage.Free == device.Storage.Free)
+	tests.Assert(t, info.Storage.Used == device.Storage.Used)
+	tests.Assert(t, info.Storage.Total == device.Storage.Total)
 }
