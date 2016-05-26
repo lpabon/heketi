@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/heketi/heketi/apps/glusterfs"
 	client "github.com/heketi/heketi/client/api/go-client"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/spf13/cobra"
 )
 
@@ -37,8 +37,8 @@ var jsonConfigFile string
 
 // Config file
 type ConfigFileNode struct {
-	Devices []string                 `json:"devices"`
-	Node    glusterfs.NodeAddRequest `json:"node"`
+	Devices []string           `json:"devices"`
+	Node    api.NodeAddRequest `json:"node"`
 }
 type ConfigFileCluster struct {
 	Nodes []ConfigFileNode `json:"nodes"`
@@ -108,7 +108,7 @@ var topologyLoadCommand = &cobra.Command{
 				for _, device := range node.Devices {
 					fmt.Fprintf(stdout, "\t\tAdding device %v ... ", device)
 
-					req := &glusterfs.DeviceAddRequest{}
+					req := &api.DeviceAddRequest{}
 					req.Name = device
 					req.NodeId = nodeInfo.Id
 					err := heketi.DeviceAdd(req)
@@ -173,12 +173,12 @@ var topologyInfoCommand = &cobra.Command{
 						v.Durability.Type)
 
 					switch v.Durability.Type {
-					case DURABILITY_STRING_EC:
+					case api.DurabilityEC:
 						s += fmt.Sprintf("\tDisperse Data: %v\n"+
 							"\tDisperse Redundancy: %v\n",
 							v.Durability.Disperse.Data,
 							v.Durability.Disperse.Redundancy)
-					case DURABILITY_STRING_REPLICATE:
+					case api.DurabilityReplicate:
 						s += fmt.Sprintf("\tReplica: %v\n",
 							v.Durability.Replicate.Replica)
 					}

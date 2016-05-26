@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/heketi/heketi/apps/glusterfs"
 	"github.com/heketi/heketi/client/api/go-client"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +69,7 @@ var deviceAddCommand = &cobra.Command{
 		}
 
 		// Create request blob
-		req := &glusterfs.DeviceAddRequest{}
+		req := &api.DeviceAddRequest{}
 		req.Name = device
 		req.NodeId = nodeId
 
@@ -196,7 +196,7 @@ var deviceEnableCommand = &cobra.Command{
 		heketi := client.NewClient(options.Url, options.User, options.Key)
 
 		//set url
-		req := &glusterfs.StateRequest{
+		req := &api.StateRequest{
 			State: "online",
 		}
 		err := heketi.DeviceState(deviceId, req)
@@ -228,7 +228,7 @@ var deviceDisableCommand = &cobra.Command{
 		heketi := client.NewClient(options.Url, options.User, options.Key)
 
 		//set url
-		req := &glusterfs.StateRequest{
+		req := &api.StateRequest{
 			State: "offline",
 		}
 		err := heketi.DeviceState(deviceId, req)

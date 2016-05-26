@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/heketi/heketi/apps/glusterfs"
 	"github.com/heketi/heketi/client/api/go-client"
+	"github.com/heketi/heketi/pkg/glusterfs/api"
 	"github.com/spf13/cobra"
 )
 
@@ -81,7 +81,7 @@ var nodeAddCommand = &cobra.Command{
 		}
 
 		// Create request blob
-		req := &glusterfs.NodeAddRequest{}
+		req := &api.NodeAddRequest{}
 		req.ClusterId = clusterId
 		req.Hostnames.Manage = []string{managmentHostNames}
 		req.Hostnames.Storage = []string{storageHostNames}
@@ -168,7 +168,7 @@ var nodeEnableCommand = &cobra.Command{
 		heketi := client.NewClient(options.Url, options.User, options.Key)
 
 		//set url
-		req := &glusterfs.StateRequest{
+		req := &api.StateRequest{
 			State: "online",
 		}
 		err := heketi.NodeState(nodeId, req)
@@ -200,7 +200,7 @@ var nodeDisableCommand = &cobra.Command{
 		heketi := client.NewClient(options.Url, options.User, options.Key)
 
 		//set url
-		req := &glusterfs.StateRequest{
+		req := &api.StateRequest{
 			State: "offline",
 		}
 		err := heketi.NodeState(nodeId, req)
