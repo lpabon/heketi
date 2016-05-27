@@ -105,11 +105,13 @@ var nodeAddCommand = &cobra.Command{
 		} else {
 			fmt.Fprintf(stdout, "Node information:\n"+
 				"Id: %v\n"+
+				"State: %v\n"+
 				"Cluster Id: %v\n"+
 				"Zone: %v\n"+
 				"Management Hostname %v\n"+
 				"Storage Hostname %v\n",
 				node.Id,
+				node.State,
 				node.ClusterId,
 				node.Zone,
 				node.Hostnames.Manage[0],
@@ -259,11 +261,13 @@ var nodeInfoCommand = &cobra.Command{
 			for _, d := range info.DevicesInfo {
 				fmt.Fprintf(stdout, "Id:%-35v"+
 					"Name:%-20v"+
+					"State:%-10v"+
 					"Size (GiB):%-8v"+
 					"Used (GiB):%-8v"+
 					"Free (GiB):%-8v\n",
 					d.Id,
 					d.Name,
+					d.State,
 					d.Storage.Total/(1024*1024),
 					d.Storage.Used/(1024*1024),
 					d.Storage.Free/(1024*1024))
