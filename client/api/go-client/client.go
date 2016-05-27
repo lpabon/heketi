@@ -28,9 +28,6 @@ import (
 
 const (
 	MAX_CONCURRENT_REQUESTS = 32
-	//VOLUME_CREATE_DURABILITY_TYPE_DISPERSION = api.DurabilityEC
-	//VOLUME_CREATE_DURABILITY_TYPE_REPLICATE  = api.DurabilityReplicate
-	//VOLUME_CREATE_DURABILITY_TYPE_NONE       = api.DurabilityDistributeOnly
 )
 
 // Client object

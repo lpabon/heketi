@@ -28,8 +28,6 @@ import (
 )
 
 type ClusterEntry struct {
-	Entry
-
 	Info api.ClusterInfoResponse
 }
 

@@ -63,8 +63,6 @@ func NewVolumeEntry() *VolumeEntry {
 	entry := &VolumeEntry{}
 	entry.Bricks = make(sort.StringSlice, 0)
 
-	//gob.Register(&ReplicaDurability{})
-	//gob.Register(&DisperseDurability{})
 	gob.Register(&NoneDurability{})
 	gob.Register(&VolumeReplicaDurability{})
 	gob.Register(&VolumeDisperseDurability{})
