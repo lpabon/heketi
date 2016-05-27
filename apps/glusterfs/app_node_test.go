@@ -1038,4 +1038,53 @@ func TestNodeState(t *testing.T) {
 	tests.Assert(t, err == nil)
 	tests.Assert(t, node.State == "online")
 
+	// Set device offline
+	request = []byte(`{
+				"state" : "offline"
+				}`)
+	r, err = http.Post(ts.URL+"/devices/"+device.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+
+	// Check it was removed from the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 0)
+
+	// Set Node offline
+	request = []byte(`{
+				"state" : "offline"
+				}`)
+	r, err = http.Post(ts.URL+"/nodes/"+node.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+
+	// Check it was removed from the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 0)
+
+	// Set Node online -- Device is still offline and should not be added
+	request = []byte(`{
+				"state" : "online"
+				}`)
+	r, err = http.Post(ts.URL+"/nodes/"+node.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+
+	// Check device is not in ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 0)
+
+	// Now make device online
+	request = []byte(`{
+				"state" : "online"
+				}`)
+	r, err = http.Post(ts.URL+"/devices/"+device.Id+"/state",
+		"application/json", bytes.NewBuffer(request))
+	tests.Assert(t, err == nil)
+	tests.Assert(t, r.StatusCode == http.StatusOK)
+
+	// Now it should be back in the ring
+	tests.Assert(t, len(mockAllocator.clustermap[cluster.Id]) == 1)
+	tests.Assert(t, mockAllocator.clustermap[cluster.Id][0] == device.Id)
+
 }
