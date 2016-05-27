@@ -312,6 +312,7 @@ func TestClientNode(t *testing.T) {
 	node, err := c.NodeAdd(nodeReq)
 	tests.Assert(t, err == nil)
 	tests.Assert(t, node.Zone == nodeReq.Zone)
+	tests.Assert(t, node.State == api.EntryStateOnline)
 	tests.Assert(t, node.Id != "")
 	tests.Assert(t, reflect.DeepEqual(nodeReq.Hostnames, node.Hostnames))
 	tests.Assert(t, len(node.DevicesInfo) == 0)
@@ -321,9 +322,27 @@ func TestClientNode(t *testing.T) {
 	tests.Assert(t, err != nil)
 	tests.Assert(t, info == nil)
 
+	// Set offline
+	err = c.NodeState(node.Id, &api.StateRequest{
+		State: api.EntryStateOffline,
+	})
+	tests.Assert(t, err == nil)
+
 	// Get node info
 	info, err = c.NodeInfo(node.Id)
 	tests.Assert(t, err == nil)
+	tests.Assert(t, info.State == api.EntryStateOffline)
+
+	// Set online
+	err = c.NodeState(node.Id, &api.StateRequest{
+		State: api.EntryStateOnline,
+	})
+	tests.Assert(t, err == nil)
+
+	// Get node info
+	info, err = c.NodeInfo(node.Id)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, info.State == api.EntryStateOnline)
 	tests.Assert(t, reflect.DeepEqual(info, node))
 
 	// Delete invalid node
@@ -395,9 +414,29 @@ func TestClientDevice(t *testing.T) {
 	tests.Assert(t, err != nil)
 
 	// Get device information
-	deviceInfo, err := c.DeviceInfo(info.DevicesInfo[0].Id)
+	deviceId := info.DevicesInfo[0].Id
+	deviceInfo, err := c.DeviceInfo(deviceId)
 	tests.Assert(t, err == nil)
+	tests.Assert(t, deviceInfo.State == api.EntryStateOnline)
 	tests.Assert(t, reflect.DeepEqual(*deviceInfo, info.DevicesInfo[0]))
+
+	// Set offline
+	err = c.DeviceState(deviceId, &api.StateRequest{
+		State: api.EntryStateOffline,
+	})
+	tests.Assert(t, err == nil)
+	deviceInfo, err = c.DeviceInfo(deviceId)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, deviceInfo.State == api.EntryStateOffline)
+
+	// Set online
+	err = c.DeviceState(deviceId, &api.StateRequest{
+		State: api.EntryStateOnline,
+	})
+	tests.Assert(t, err == nil)
+	deviceInfo, err = c.DeviceInfo(deviceId)
+	tests.Assert(t, err == nil)
+	tests.Assert(t, deviceInfo.State == api.EntryStateOnline)
 
 	// Try to delete node, and will not until we delete the device
 	err = c.NodeDelete(node.Id)
