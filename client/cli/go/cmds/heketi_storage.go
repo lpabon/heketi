@@ -28,6 +28,7 @@ import (
 	"github.com/heketi/heketi/pkg/kubernetes"
 	"github.com/spf13/cobra"
 
+	kube "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	kubeapi "k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/batch"
@@ -260,22 +261,22 @@ func createHeketiCopyJob() error {
 	job.Spec.Parallelism = &p
 	job.Spec.Completions = &c
 	job.Spec.Template.ObjectMeta.Name = HeketiStorageJobName
-	job.Spec.Template.Spec.Volumes = []kubeapi.Volume{
-		kubeapi.Volume{
+	job.Spec.Template.Spec.Volumes = []kube.Volume{
+		kube.Volume{
 			Name: HeketiStoragePvcName,
 		},
-		kubeapi.Volume{
+		kube.Volume{
 			Name: HeketiStorageSecretName,
 		},
 	}
-	job.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &kubeapi.PersistentVolumeClaimSource{
-		ClaimName: HeketiStoragePvcName,
+	job.Spec.Template.Spec.Volumes[0].Glusterfs = &kube.GlusterfsVolumeSource{
+		EndpointsName: HeketiStorageEndpointName,
+		Path:          HeketiStorageVolumeName,
 	}
-	job.Spec.Template.Spec.Volumes[1].Secret = &kubeapi.SecretVolumeSource{
+	job.Spec.Template.Spec.Volumes[1].Secret = &kube.SecretVolumeSource{
 		SecretName: HeketiStorageSecretName,
 	}
 	return saveJson(job, HeketiStorageJobFilename)
-
 }
 
 var setupHeketiStorageCommand = &cobra.Command{
