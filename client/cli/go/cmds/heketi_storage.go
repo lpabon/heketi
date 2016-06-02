@@ -28,16 +28,31 @@ import (
 	"github.com/heketi/heketi/pkg/kubernetes"
 	"github.com/spf13/cobra"
 
+	"k8s.io/kubernetes/pkg/api/resource"
 	kubeapi "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/batch"
 )
 
 const (
 	HeketiStoragePvFilename        = "heketi-storage-pv.json"
 	HeketiStorageEndpointsFilename = "heketi-storage-endpoints.json"
 	HeketiStorageSecretFilename    = "heketi-storage-secret.json"
-	HeketiStorageEndpointName      = "heketi-storage-endpoints"
-	HeketiStorageVolumeName        = "heketi-storage"
-	HeketiStorageSecretName        = "heketi-storage-secret"
+	HeketiStorageServiceFilename   = "heketi-storage-service.json"
+	HeketiStoragePvcFilename       = "heketi-storage-pvc.json"
+	HeketiStorageJobFilename       = "heketi-storage-job.json"
+
+	HeketiStorageJobName      = "heketi-storage-copy-job"
+	HeketiStorageEndpointName = "heketi-storage-endpoints"
+	HeketiStoragePvName       = "heketi-storage-pv"
+	HeketiStorageSecretName   = "heketi-storage-secret"
+	HeketiStoragePvcName      = "heketi-storage-pvc"
+
+	HeketiStorageVolumeName    = "heketi_storage"
+	HeketiStorageVolumeSize    = 32
+	HeketiStorageVolumeSizeStr = "32Gi"
+
+	HeketiStorageLabelKey   = "glustervol"
+	HeketiStorageLabelValue = "heketi-storage"
 )
 
 func init() {
@@ -74,8 +89,11 @@ func createHeketiStorageVolumePv(c *client.Client,
 	// Create PV
 	fmt.Fprintf(stdout, "Saving %v\n", HeketiStoragePvFilename)
 	pv := kubernetes.VolumeToPv(volume,
-		HeketiStorageVolumeName,
+		HeketiStoragePvName,
 		HeketiStorageEndpointName)
+	pv.ObjectMeta.Labels = map[string]string{
+		HeketiStorageLabelKey: HeketiStorageLabelValue,
+	}
 
 	return saveJson(pv, HeketiStoragePvFilename)
 }
@@ -87,7 +105,7 @@ func createHeketiStorageVolume(c *client.Client) error {
 
 	// Create request
 	req := &api.VolumeCreateRequest{}
-	req.Size = 32
+	req.Size = HeketiStorageVolumeSize
 	req.Name = HeketiStorageVolumeName
 
 	// Create volume
@@ -132,6 +150,22 @@ func createHeketiSecretFromDb(c *client.Client) error {
 	secret.Data["heketi.db"] = dbfile.Bytes()
 
 	return saveJson(secret, HeketiStorageSecretFilename)
+}
+
+func createHeketiEndpointService() error {
+	fmt.Fprintf(stdout, "Saving %v\n", HeketiStorageServiceFilename)
+
+	service := &kubeapi.Service{}
+	service.Kind = "Service"
+	service.APIVersion = "v1"
+	service.ObjectMeta.Name = HeketiStorageEndpointName
+	service.Spec.Ports = []kubeapi.ServicePort{
+		kubeapi.ServicePort{
+			Port: 1,
+		},
+	}
+
+	return saveJson(service, HeketiStorageServiceFilename)
 }
 
 func createHeketiStorageEndpoints(c *client.Client,
@@ -185,6 +219,65 @@ func createHeketiStorageEndpoints(c *client.Client,
 	return saveJson(endpoint, HeketiStorageEndpointsFilename)
 }
 
+func createHeketiStoragePvc() error {
+
+	fmt.Fprintf(stdout, "Saving %v\n", HeketiStoragePvcFilename)
+
+	pvc := &kubeapi.PersistentVolumeClaim{}
+	pvc.Kind = "PersistentVolumeClaim"
+	pvc.APIVersion = "v1"
+	pvc.ObjectMeta.Name = HeketiStoragePvcName
+	pvc.Spec.AccessModes = []kubeapi.PersistentVolumeAccessMode{
+		kubeapi.ReadWriteMany,
+	}
+	pvc.Spec.Resources.Requests = kubeapi.ResourceList{
+		kubeapi.ResourceStorage: resource.MustParse(HeketiStorageVolumeSizeStr),
+	}
+
+	/* Add this back when kubernetes supports it
+
+	pvc.Spec.Selector = &unversioned.LabelSelector{
+		MatchLabels: {
+			HeketiStorageLabelKey: HeketiStorageLabelValue,
+		},
+	}
+	*/
+
+	return saveJson(pvc, HeketiStoragePvcFilename)
+}
+
+func createHeketiCopyJob() error {
+	fmt.Fprintf(stdout, "Saving %v\n", HeketiStorageJobFilename)
+	job := &batch.Job{}
+	job.Kind = "Job"
+	job.APIVersion = "extensions/v1beta1"
+	job.ObjectMeta.Name = HeketiStorageJobName
+
+	var (
+		p int32 = 1
+		c int32 = 1
+	)
+	job.Spec.Parallelism = &p
+	job.Spec.Completions = &c
+	job.Spec.Template.ObjectMeta.Name = HeketiStorageJobName
+	job.Spec.Template.Spec.Volumes = []kubeapi.Volume{
+		kubeapi.Volume{
+			Name: HeketiStoragePvcName,
+		},
+		kubeapi.Volume{
+			Name: HeketiStorageSecretName,
+		},
+	}
+	job.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &kubeapi.PersistentVolumeClaimSource{
+		ClaimName: HeketiStoragePvcName,
+	}
+	job.Spec.Template.Spec.Volumes[1].Secret = &kubeapi.SecretVolumeSource{
+		SecretName: HeketiStorageSecretName,
+	}
+	return saveJson(job, HeketiStorageJobFilename)
+
+}
+
 var setupHeketiStorageCommand = &cobra.Command{
 	Use:   "setup-openshift-heketi-storage",
 	Short: "Setup persistent storage for Heketi",
@@ -205,6 +298,24 @@ var setupHeketiStorageCommand = &cobra.Command{
 
 		// Create secret
 		err = createHeketiSecretFromDb(c)
+		if err != nil {
+			return nil
+		}
+
+		// Create service for the endpoints
+		err = createHeketiEndpointService()
+		if err != nil {
+			return nil
+		}
+
+		// Create persistent volume claim
+		err = createHeketiStoragePvc()
+		if err != nil {
+			return nil
+		}
+
+		// Create Job which copies db
+		err = createHeketiCopyJob()
 		if err != nil {
 			return nil
 		}
