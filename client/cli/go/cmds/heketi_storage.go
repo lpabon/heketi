@@ -34,6 +34,12 @@ import (
 	"k8s.io/kubernetes/pkg/apis/batch"
 )
 
+type KubeList struct {
+	APIVersion string        `json:"apiVersion"`
+	Kind       string        `json:"kind"`
+	Items      []interface{} `json:"items"`
+}
+
 const (
 	HeketiStoragePvFilename        = "heketi-storage-pv.json"
 	HeketiStorageEndpointsFilename = "heketi-storage-endpoints.json"
@@ -41,6 +47,7 @@ const (
 	HeketiStorageServiceFilename   = "heketi-storage-service.json"
 	HeketiStoragePvcFilename       = "heketi-storage-pvc.json"
 	HeketiStorageJobFilename       = "heketi-storage-job.json"
+	HeketiStorageListFilename      = "heketi-storage.json"
 
 	HeketiStorageJobName      = "heketi-storage-copy-job"
 	HeketiStorageEndpointName = "heketi-storage-endpoints"
@@ -56,11 +63,22 @@ const (
 	HeketiStorageLabelValue = "heketi-storage"
 )
 
+var (
+	list                      KubeList
+	HeketiStorageJobContainer = "heketi/heketi:dev"
+)
+
 func init() {
 	RootCmd.AddCommand(setupHeketiStorageCommand)
+	list.APIVersion = "v1"
+	list.Kind = "List"
+	list.Items = make([]interface{}, 0)
 }
 
 func saveJson(i interface{}, filename string) error {
+
+	// Global is ugly but good enough for now
+	list.Items = append(list.Items, i)
 
 	// Open File
 	f, err := os.Create(filename)
@@ -276,6 +294,30 @@ func createHeketiCopyJob() error {
 	job.Spec.Template.Spec.Volumes[1].Secret = &kube.SecretVolumeSource{
 		SecretName: HeketiStorageSecretName,
 	}
+
+	job.Spec.Template.Spec.Containers = []kube.Container{
+		kube.Container{
+			Name:  "heketi",
+			Image: HeketiStorageJobContainer,
+			Command: []string{
+				"ls /",
+				"ls /heketi",
+				"ls /db",
+			},
+			VolumeMounts: []kube.VolumeMount{
+				kube.VolumeMount{
+					Name:      HeketiStoragePvcName,
+					MountPath: "/heketi",
+				},
+				kube.VolumeMount{
+					Name:      HeketiStorageSecretName,
+					MountPath: "/db",
+				},
+			},
+		},
+	}
+	job.Spec.Template.Spec.RestartPolicy = kube.RestartPolicyNever
+
 	return saveJson(job, HeketiStorageJobFilename)
 }
 
@@ -319,6 +361,13 @@ var setupHeketiStorageCommand = &cobra.Command{
 		err = createHeketiCopyJob()
 		if err != nil {
 			return nil
+		}
+
+		// Save list
+		fmt.Fprintf(stdout, "Saving %v\n", HeketiStorageListFilename)
+		err = saveJson(list, HeketiStorageListFilename)
+		if err != nil {
+			return err
 		}
 
 		return nil
