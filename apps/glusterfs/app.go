@@ -30,8 +30,8 @@ import (
 	"github.com/heketi/heketi/executors/kubeexec"
 	"github.com/heketi/heketi/executors/mockexec"
 	"github.com/heketi/heketi/executors/sshexec"
+	"github.com/heketi/heketi/pkg/utils"
 	"github.com/heketi/rest"
-	"github.com/heketi/utils"
 )
 
 const (
