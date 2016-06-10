@@ -140,7 +140,7 @@ var volumeCreateCommand = &cobra.Command{
 		if kubePv && kubePvEndpoint == "" {
 			fmt.Fprintf(stderr, "--persistent-volume-endpoint must be provided "+
 				"when using --persistent-volume\n")
-			return fmt.Errorf("Missing endpoing")
+			return fmt.Errorf("Missing endpoint")
 		}
 
 		// Check clusters
