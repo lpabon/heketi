@@ -51,6 +51,8 @@ const (
 )
 
 var (
+
+	// Override this from command line
 	HeketiStorageJobContainer = "heketi/heketi:dev"
 )
 
@@ -189,7 +191,7 @@ func createHeketiStorageEndpoints(c *client.Client,
 func createHeketiCopyJob(volume *api.VolumeInfoResponse) *batch.Job {
 	job := &batch.Job{}
 	job.Kind = "Job"
-	job.APIVersion = "v1"
+	job.APIVersion = "batch/v1"
 	job.ObjectMeta.Name = HeketiStorageJobName
 
 	var (
