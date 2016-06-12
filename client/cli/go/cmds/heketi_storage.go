@@ -89,6 +89,8 @@ func createHeketiStorageVolume(c *client.Client) (*api.VolumeInfoResponse, error
 	// Create request
 	req := &api.VolumeCreateRequest{}
 	req.Size = HeketiStorageVolumeSize
+	req.Durability.Type = api.DurabilityReplicate
+	req.Durability.Replicate.Replica = 3
 	//req.Name = HeketiStorageVolumeName
 
 	// Create volume
