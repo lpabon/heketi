@@ -217,6 +217,9 @@ func createHeketiCopyJob(volume *api.VolumeInfoResponse) *batch.Job {
 	job.Kind = "Job"
 	job.APIVersion = "batch/v1"
 	job.ObjectMeta.Name = HeketiStorageJobName
+	job.ObjectMeta.Labels = map[string]string{
+		"deploy-heketi": "support",
+	}
 
 	var (
 		p int32 = 1
