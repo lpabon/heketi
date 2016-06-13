@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	client "github.com/heketi/heketi/client/api/go-client"
 	"github.com/heketi/heketi/pkg/glusterfs/api"
@@ -39,14 +38,12 @@ type KubeList struct {
 }
 
 const (
-	HeketiStorageListFilename = "heketi-storage.json"
-
 	HeketiStorageJobName      = "heketi-storage-copy-job"
 	HeketiStorageEndpointName = "heketi-storage-endpoints"
 	HeketiStorageSecretName   = "heketi-storage-secret"
 	HeketiStorageVolTagName   = "heketi-storage"
 
-	HeketiStorageVolumeName    = "heketi_storage"
+	HeketiStorageVolumeName    = "heketidbstorage"
 	HeketiStorageVolumeSize    = 32
 	HeketiStorageVolumeSizeStr = "32Gi"
 )
@@ -55,10 +52,15 @@ var (
 
 	// Override this from command line
 	HeketiStorageJobContainer = "heketi/heketi:dev"
+	heketiStorageListFilename string
 )
 
 func init() {
 	RootCmd.AddCommand(setupHeketiStorageCommand)
+	setupHeketiStorageCommand.Flags().StringVar(&heketiStorageListFilename,
+		"listfile",
+		"heketi-storage.json",
+		"Filename to contain list of objects")
 }
 
 func saveJson(i interface{}, filename string) error {
@@ -166,24 +168,20 @@ func createHeketiEndpointService() *kubeapi.Service {
 }
 
 func createHeketiStorageEndpoints(c *client.Client,
-	volume *api.VolumeInfoResponse) (*kubeapi.Endpoints, error) {
+	volume *api.VolumeInfoResponse) *kubeapi.Endpoints {
 
 	endpoint := &kubeapi.Endpoints{}
 	endpoint.Kind = "Endpoints"
 	endpoint.APIVersion = "v1"
 	endpoint.ObjectMeta.Name = HeketiStorageEndpointName
 
-	// Get all node ids in the cluster with the volume
-	cluster, err := c.ClusterInfo(volume.Cluster)
-	if err != nil {
-		return nil, fmt.Errorf("ERROR: %v\nUnable to get cluster information", err.Error())
-	}
-
 	// Initialize slices
-	endpoint.Subsets = make([]kubeapi.EndpointSubset, len(cluster.Nodes))
+	endpoint.Subsets = make([]kubeapi.EndpointSubset, 3)
+	//len(volume.Mount.GlusterFS.Hosts))
 
 	// Save all nodes in the endpoints
-	for n, host := range volume.Mount.GlusterFS.Hosts {
+	for n, host := range []string{"192.168.10.100", "192.168.10.101", "192.168.10.102"} {
+		//for n, host := range volume.Mount.GlusterFS.Hosts {
 
 		// Determine if it is an IP address
 		netIp := net.ParseIP(host)
@@ -211,7 +209,7 @@ func createHeketiStorageEndpoints(c *client.Client,
 		}
 	}
 
-	return endpoint, nil
+	return endpoint
 }
 
 func createHeketiCopyJob(volume *api.VolumeInfoResponse) *batch.Job {
@@ -291,24 +289,18 @@ var setupHeketiStorageCommand = &cobra.Command{
 		c := client.NewClient(options.Url, options.User, options.Key)
 
 		// Create volume
-		volume, err := c.VolumeCreate(req)
+		volume, err := createHeketiStorageVolume(c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Cleanup volume on error
 		defer func() {
 			if e != nil {
+				fmt.Fprintln(stderr, "Cleaning up")
 				c.VolumeDelete(volume.Id)
 			}
 		}()
-
-		// Create endpoints
-		endpoints, err := createHeketiStorageEndpoints(c, volume)
-		if err != nil {
-			return err
-		}
-		list.Items = append(list.Items, endpoints)
 
 		// Create secret
 		secret, err := createHeketiSecretFromDb(c)
@@ -316,6 +308,10 @@ var setupHeketiStorageCommand = &cobra.Command{
 			return err
 		}
 		list.Items = append(list.Items, secret)
+
+		// Create endpoints
+		endpoints := createHeketiStorageEndpoints(c, volume)
+		list.Items = append(list.Items, endpoints)
 
 		// Create service for the endpoints
 		service := createHeketiEndpointService()
@@ -326,8 +322,8 @@ var setupHeketiStorageCommand = &cobra.Command{
 		list.Items = append(list.Items, job)
 
 		// Save list
-		fmt.Fprintf(stdout, "Saving %v\n", HeketiStorageListFilename)
-		err = saveJson(list, HeketiStorageListFilename)
+		fmt.Fprintf(stdout, "Saving %v\n", heketiStorageListFilename)
+		err = saveJson(list, heketiStorageListFilename)
 		if err != nil {
 			return err
 		}
