@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	client "github.com/heketi/heketi/client/api/go-client"
 	"github.com/heketi/heketi/pkg/glusterfs/api"
@@ -45,7 +46,7 @@ const (
 	HeketiStorageSecretName   = "heketi-storage-secret"
 	HeketiStorageVolTagName   = "heketi-storage"
 
-	//HeketiStorageVolumeName    = "heketi_storage"
+	HeketiStorageVolumeName    = "heketi_storage"
 	HeketiStorageVolumeSize    = 32
 	HeketiStorageVolumeSizeStr = "32Gi"
 )
@@ -86,12 +87,39 @@ func saveJson(i interface{}, filename string) error {
 
 func createHeketiStorageVolume(c *client.Client) (*api.VolumeInfoResponse, error) {
 
+	// Make sure the volume does not already exist on any cluster
+	clusters, err := c.ClusterList()
+	if err != nil {
+		return nil, err
+	}
+
+	// Go through all the clusters checking volumes
+	for _, clusterId := range clusters.Clusters {
+		cluster, err := c.ClusterInfo(clusterId)
+		if err != nil {
+			return nil, err
+		}
+
+		// Go through all the volumes checking the names
+		for _, volumeId := range cluster.Volumes {
+			volume, err := c.VolumeInfo(volumeId)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check volume name
+			if volume.Name == HeketiStorageVolumeName {
+				return nil, fmt.Errorf("Volume %v alreay exists", HeketiStorageVolumeName)
+			}
+		}
+	}
+
 	// Create request
 	req := &api.VolumeCreateRequest{}
 	req.Size = HeketiStorageVolumeSize
 	req.Durability.Type = api.DurabilityReplicate
 	req.Durability.Replicate.Replica = 3
-	//req.Name = HeketiStorageVolumeName
+	req.Name = HeketiStorageVolumeName
 
 	// Create volume
 	volume, err := c.VolumeCreate(req)
@@ -155,26 +183,22 @@ func createHeketiStorageEndpoints(c *client.Client,
 	endpoint.Subsets = make([]kubeapi.EndpointSubset, len(cluster.Nodes))
 
 	// Save all nodes in the endpoints
-	for n, nodeId := range cluster.Nodes {
-		node, err := c.NodeInfo(nodeId)
-		if err != nil {
-			return nil, fmt.Errorf("ERROR: %v\nUnable to get necessary node information", err.Error())
-		}
+	for n, host := range volume.Mount.GlusterFS.Hosts {
 
 		// Determine if it is an IP address
-		netIp := net.ParseIP(node.Hostnames.Storage[0])
+		netIp := net.ParseIP(host)
 		if netIp == nil {
 			// It is not an IP, it is a hostname
 			endpoint.Subsets[n].Addresses = []kubeapi.EndpointAddress{
 				kubeapi.EndpointAddress{
-					Hostname: node.Hostnames.Storage[0],
+					Hostname: host,
 				},
 			}
 		} else {
 			// It is an IP
 			endpoint.Subsets[n].Addresses = []kubeapi.EndpointAddress{
 				kubeapi.EndpointAddress{
-					IP: node.Hostnames.Storage[0],
+					IP: host,
 				},
 			}
 		}
@@ -251,13 +275,13 @@ func createHeketiCopyJob(volume *api.VolumeInfoResponse) *batch.Job {
 
 var setupHeketiStorageCommand = &cobra.Command{
 	Use:   "setup-openshift-heketi-storage",
-	Short: "Setup persistent storage for Heketi",
+	Short: "Setup OpenShift/Kubernetes persistent storage for Heketi",
 	Long: "Creates a dedicated GlusterFS volume for Heketi.\n" +
-		"Once the volume is created, a set of Kubernetes/OpenShift\n" +
-		"files are created to configure Heketi to use the newly create\n" +
-		"GlusterFS volume.",
+		"Once the volume is created, a Kubernetes/OpenShift\n" +
+		"list object is created to configure the volume.\n",
 	RunE: func(cmd *cobra.Command, args []string) (e error) {
 
+		// Initialize Kubernetes List object
 		list := &KubeList{}
 		list.APIVersion = "v1"
 		list.Kind = "List"
@@ -267,9 +291,9 @@ var setupHeketiStorageCommand = &cobra.Command{
 		c := client.NewClient(options.Url, options.User, options.Key)
 
 		// Create volume
-		volume, err := createHeketiStorageVolume(c)
+		volume, err := c.VolumeCreate(req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Cleanup volume on error
