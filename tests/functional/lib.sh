@@ -44,6 +44,7 @@ run_tests() {
 }
 
 functional_tests() {
+    teardown_vagrant
     start_vagrant
     start_heketi
 

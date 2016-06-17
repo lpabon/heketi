@@ -9,6 +9,7 @@ println() {
     echo "==> $1"
 }
 
+starttime=`date`
 export PATH=$PATH:.
 
 # Check go can build
@@ -37,5 +38,14 @@ for testDir in * ; do
         fi
     fi
 done
+
+# Summary
+println "Started $starttime"
+println "Ended `date`"
+if [ $results -eq 0 ] ; then
+    println "PASSED"
+else
+    println "FAILED"
+fi
 
 exit $results
