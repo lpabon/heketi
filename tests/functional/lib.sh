@@ -40,6 +40,7 @@ teardown_vagrant() {
 run_tests() {
     cd tests
     go test -timeout=1h -tags functional
+    gotest_result=$?
     cd ..
 }
 
@@ -49,11 +50,10 @@ functional_tests() {
     start_heketi
 
     run_tests
-    results=$?
 
     kill $HEKETI_PID
     teardown_vagrant
 
-    exit $results
+    exit $gotest_result
 }
 

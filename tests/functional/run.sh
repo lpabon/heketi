@@ -30,7 +30,7 @@ for testDir in * ; do
         result=$?
         cd ..
 
-        if [ $? -ne 0 ] ; then
+        if [ $result -ne 0 ] ; then
             println "FAILED $testDir"
             results=1
         else
