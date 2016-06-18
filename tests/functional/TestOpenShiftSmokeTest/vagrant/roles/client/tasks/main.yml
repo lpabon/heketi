@@ -1,0 +1,18 @@
+- name: install packages
+  yum: name={{ item }} state=present
+  with_items:
+    - epel-release
+    - centos-release-gluster
+    - wget 
+    - git 
+    - net-tools 
+    - bind-utils 
+    - iptables-services 
+    - bridge-utils 
+    - bash-completion
+
+- name: install ansible
+  yum: name={{ item }} state=present
+  with_items:
+    - ansible
+    - pyOpenSSL

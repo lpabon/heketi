@@ -1,0 +1,5 @@
+- name: copy private key
+  copy: src=insecure_private_key owner=vagrant group=vagrant dest=/home/vagrant/.ssh/id_rsa force=no mode=0600
+
+- name: enable selinux
+  selinux: policy=targeted state=enforcing
