@@ -1,5 +1,0 @@
-- name: copy docker config
-  copy: src=docker dest=/etc/sysconfig/docker force=yes mode=0644
-
-- name: restart docker
-  service: name=docker state=restarted
