@@ -1,0 +1,11 @@
+- name: make user admin a cluster admin
+  command: /usr/local/bin/oadm policy add-cluster-role-to-user cluster-admin admin
+
+- name: setup router privileges
+  command: /usr/local/bin/oadm policy add-scc-to-user privileged -z router
+
+- name: setup deployer privileges
+  command: /usr/local/bin/oadm policy add-scc-to-user privileged -z default
+
+- name: deploy a router
+  command: /usr/local/bin/oadm router --replicas=1 --service-account=router --credentials=/etc/origin/master/openshift-router.kubeconfig
