@@ -13,3 +13,16 @@
 - name: save iptables
   command: service iptables save
 
+- name: copy heketi docker image
+  copy: src=heketi-docker-ci.img dest=/home/vagrant force=yes mode=0644
+
+- name: register docker image
+  command: docker load -i heketi-docker-ci.img
+
+- name: retag :ci to :dev
+  command: docker tag heketi/heketi:ci heketi/heketi:dev
+
+- name: upgrade atomic
+  command: atomic host upgrade
+  ignore_errors: yes
+

@@ -22,10 +22,19 @@
   git: repo=https://github.com/openshift/openshift-ansible dest=/home/vagrant/openshift-ansible
 
 - name: copy hosts.conf
-  copy: src=hosts.conf dest=/home/vagrant force=no mode=0644
+  copy: src=hosts.conf dest=/home/vagrant force=yes mode=0644
 
 - name: copy dnsmasq.conf
   copy: src=dnsmasq.conf dest=/etc force=yes mode=0644
+
+- name: copy heketi-cli
+  copy: src=heketi-cli dest=/usr/bin force=yes mode=0755
+
+- name: mkdir /usr/share/heketi
+  file: path=/usr/share/heketi state=directory mode=0755
+
+- name: copy templates
+  copy: src=template dest=/usr/share/heketi mode=0644
 
 - name: restart dnsmasq
   service: name=dnsmasq state=restarted

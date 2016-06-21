@@ -12,3 +12,7 @@
 
 - name: enable selinux
   selinux: policy=targeted state=enforcing
+
+- name: fix issue with eth1
+  lineinfile: dest=/etc/sysconfig/network-scripts/ifcfg-eth1 regexp="^NM_CONTROLLED=" line="NM_CONTROLLED=yes"
+
