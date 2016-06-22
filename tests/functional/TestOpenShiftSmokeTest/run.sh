@@ -48,4 +48,4 @@ copy_client_files
 build_docker_file
 start_vagrant
 deploy_heketi_glusterfs
-
+teardown_vagrant
