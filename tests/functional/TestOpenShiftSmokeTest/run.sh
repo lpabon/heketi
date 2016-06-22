@@ -36,9 +36,16 @@ copy_client_files() {
     cp -r $TOP/extras/openshift/template vagrant
 }
 
+deploy_heketi_glusterfs() {
+    cd tests/deploy
+    sudo ./run.sh || fail "Unable to deploy"
+    cd $CURRENT_DIR
+}
+
 teardown_vagrant
 build_heketi
 copy_client_files
 build_docker_file
 start_vagrant
+deploy_heketi_glusterfs
 

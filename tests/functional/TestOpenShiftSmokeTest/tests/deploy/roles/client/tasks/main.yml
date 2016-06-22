@@ -36,11 +36,15 @@
   command: oc create -f heketi-storage.json
 
 - name: wait until job has copied the database
-  shell:  while : ; do if oc get pods | grep heketi-storage-copy-job | grep Completed > /dev/null 2>&1 ; then break; else sleep 1; fi; done
+  shell:  while true ; do if oc get pods | grep heketi-storage-copy-job | grep Completed > /dev/null 2>&1 ; then break; else sleep 1; fi; done
 
 - name: delete deploy-heketi
   command: oc delete all,job,template,secret --selector="deploy-heketi"
 
 - name: deploy heketi
   shell: oc process heketi -v HEKETI_KUBE_INSECURE=y HEKETI_KUBE_USER=admin HEKETI_KUBE_PASSWORD=admin HEKETI_KUBE_NAMESPACE=default HEKETI_KUBE_APIHOST=https://192.168.10.90:8443 | oc create -f -
+
+- name: wait for heketi to be ready
+  wait_for: host=heketi-default.cloudapps.example.com port=80 state=started
+
 
