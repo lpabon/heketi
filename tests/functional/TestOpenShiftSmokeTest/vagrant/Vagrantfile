@@ -56,6 +56,13 @@ Vagrant.configure("2") do |config|
                 lv.cpus = 2
             end
 
+            driverletters = ('b'..'z').to_a
+            (0..DISKS-1).each do |d|
+                atomic.vm.provider :libvirt do  |lv|
+                    lv.storage :file, :device => "vd#{driverletters[d]}", :path => "origin-disk-#{i}-#{d}.disk", :size => '500G'
+                end
+            end
+
             if i == (MINIONS-1)
                 # View the documentation for the provider you're using for more
                 # information on available options.

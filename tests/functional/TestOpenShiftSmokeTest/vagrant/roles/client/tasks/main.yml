@@ -27,6 +27,9 @@
 - name: copy dnsmasq.conf
   copy: src=dnsmasq.conf dest=/etc force=yes mode=0644
 
+- name: copy topology.json
+  copy: src=topology.json dest=/home/vagrant force=yes mode=0666
+
 - name: copy heketi-cli
   copy: src=heketi-cli dest=/usr/bin force=yes mode=0755
 
