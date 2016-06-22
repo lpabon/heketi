@@ -8,4 +8,7 @@
   command: /usr/local/bin/oadm policy add-scc-to-user privileged -z default
 
 - name: deploy a router
-  command: /usr/local/bin/oadm router --replicas=1 --service-account=router --credentials=/etc/origin/master/openshift-router.kubeconfig
+  command: /usr/local/bin/oadm router --replicas=3 --service-account=router --credentials=/etc/origin/master/openshift-router.kubeconfig
+
+- name: setup subdomain
+  lineinfile: dest=/etc/origin/master/master-config.yaml regexp="^  subdomain:" line="  subdomain{{':'}} cloudapps.example.com"

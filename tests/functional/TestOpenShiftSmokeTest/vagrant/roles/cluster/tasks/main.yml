@@ -21,6 +21,7 @@
 
 - name: retag :ci to :dev
   command: docker tag heketi/heketi:ci heketi/heketi:dev
+  ignore_errors: yes
 
 - name: upgrade atomic
   command: atomic host upgrade
