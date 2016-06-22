@@ -37,10 +37,10 @@
   copy: src=template dest=/usr/share/heketi mode=0644
 
 - name: restart dnsmasq
-  service: name=dnsmasq state=restarted
+  service: name=dnsmasq enabled=yes state=restarted
 
 - name: setup resolv.conf 
-  lineinfile: dest=/etc/rc.d/rc.local regexp="^echo" line="echo \"nameserver 127.0.0.1\" >> /etc/resolv.conf"
+  lineinfile: dest=/etc/rc.d/rc.local regexp="^sed" line="sed -i '1s/^/nameserver 127.0.0.1\\n/' /etc/resolv.conf"
 
 - name: make rc.local executable
   command: chmod a+x /etc/rc.d/rc.local
