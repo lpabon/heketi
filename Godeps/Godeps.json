@@ -2,6 +2,9 @@
 	"ImportPath": "github.com/heketi/heketi",
 	"GoVersion": "go1.5",
 	"GodepVersion": "v63",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
@@ -210,6 +213,10 @@
 		{
 			"ImportPath": "github.com/heketi/rest",
 			"Rev": "738570ea73f1cc2a0888c7c49fe80991c6050f34"
+		},
+		{
+			"ImportPath": "github.com/heketi/tests",
+			"Rev": "f3775cbcefd6822086c729e3ce4b70ca85a5bd21"
 		},
 		{
 			"ImportPath": "github.com/heketi/utils",
