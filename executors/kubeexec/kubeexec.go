@@ -49,21 +49,6 @@ const (
 	KubeGlusterFSPodLabelKey = "glusterfs-node"
 )
 
-type KubeConfig struct {
-	Host      string `json:"host"`
-	Sudo      bool   `json:"sudo"`
-	CertFile  string `json:"cert"`
-	Insecure  bool   `json:"insecure"`
-	User      string `json:"user"`
-	Password  string `json:"password"`
-	Namespace string `json:"namespace"`
-	Fstab     string `json:"fstab"`
-
-	// Use POD name instead of using label
-	// to access POD
-	UsePodNames bool `json:"use_pod_names"`
-}
-
 type KubeExecutor struct {
 	// Embed all sshexecutor functions
 	sshexec.SshExecutor
@@ -263,9 +248,12 @@ func (k *KubeExecutor) ConnectAndExec(host, namespace, resource string,
 		// Remove any whitespace
 		command = strings.Trim(command, " ")
 
+		// Create command
+		exec_cmd := []string{"/bin/bash", "-c", "'", command, "'"}
+
 		// Determine if we should use sudo
 		if k.config.Sudo {
-			command = "sudo " + command
+			exec_cmd = append([]string{"sudo"}, exec_cmd...)
 		}
 
 		// Create REST command
@@ -275,7 +263,7 @@ func (k *KubeExecutor) ConnectAndExec(host, namespace, resource string,
 			Namespace(namespace).
 			SubResource("exec")
 		req.VersionedParams(&api.PodExecOptions{
-			Command: []string{"/bin/bash", "-c", command},
+			Command: exec_cmd,
 			Stdout:  true,
 			Stderr:  true,
 		}, api.ParameterCodec)
