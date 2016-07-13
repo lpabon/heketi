@@ -19,14 +19,16 @@ package kubeexec
 import (
 	"testing"
 
+	"github.com/heketi/heketi/executors/sshexec"
 	"github.com/heketi/tests"
 )
 
 func TestNewKubeExecutor(t *testing.T) {
 	config := &KubeConfig{
-		Host:      "myhost",
-		Sudo:      true,
-		Fstab:     "myfstab",
+		Host: "myhost",
+		CLICommandConfig: sshexec.CLICommandConfig{
+			Fstab: "myfstab",
+		},
 		Namespace: "mynamespace",
 	}
 
@@ -39,9 +41,10 @@ func TestNewKubeExecutor(t *testing.T) {
 
 func TestNewKubeExecutorNoNamespace(t *testing.T) {
 	config := &KubeConfig{
-		Host:  "myhost",
-		Sudo:  true,
-		Fstab: "myfstab",
+		Host: "myhost",
+		CLICommandConfig: sshexec.CLICommandConfig{
+			Fstab: "myfstab",
+		},
 	}
 
 	k, err := NewKubeExecutor(config)
