@@ -248,13 +248,7 @@ func (k *KubeExecutor) ConnectAndExec(host, namespace, resource string,
 		// Remove any whitespace
 		command = strings.Trim(command, " ")
 
-		// Create command
-		exec_cmd := []string{"/bin/bash", "-c", "'", command, "'"}
-
-		// Determine if we should use sudo
-		if k.config.Sudo {
-			exec_cmd = append([]string{"sudo"}, exec_cmd...)
-		}
+		// SUDO is *not* supported
 
 		// Create REST command
 		req := conn.RESTClient.Post().
@@ -263,7 +257,7 @@ func (k *KubeExecutor) ConnectAndExec(host, namespace, resource string,
 			Namespace(namespace).
 			SubResource("exec")
 		req.VersionedParams(&api.PodExecOptions{
-			Command: exec_cmd,
+			Command: []string{"/bin/bash", "-c", command},
 			Stdout:  true,
 			Stderr:  true,
 		}, api.ParameterCodec)
