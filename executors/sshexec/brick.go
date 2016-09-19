@@ -95,6 +95,12 @@ func (s *SshExecutor) BrickCreate(host string,
 
 		// Create a directory inside the formated volume for GlusterFS
 		fmt.Sprintf("mkdir %v/brick", mountpoint),
+
+		// Set GID on brick
+		fmt.Sprintf("chown :1000 %v/brick", mountpoint),
+
+		// Set writable by GID and UID
+		fmt.Sprintf("chmod 775 %v/brick", mountpoint),
 	}
 
 	// Execute commands
