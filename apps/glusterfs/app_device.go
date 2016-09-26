@@ -219,29 +219,27 @@ func (a *App) DeviceDelete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return err
 		} else if err != nil {
-			logger.Err(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return err
+			return logger.Err(err)
 		}
 
 		// Check if we can delete the device
 		if !device.IsDeleteOk() {
-			http.Error(w, ErrConflict.Error(), http.StatusConflict)
+			http.Error(w, device.ConflictString(), http.StatusConflict)
 			return ErrConflict
 		}
 
 		// Access node entry
 		node, err = NewNodeEntryFromId(tx, device.NodeId)
 		if err != nil {
-			logger.Err(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return err
+			return logger.Err(err)
 		}
 
 		// Save cluster to update allocator
 		cluster, err = NewClusterEntryFromId(tx, node.Info.ClusterId)
 		if err != nil {
-			return err
+			return logger.Err(err)
 		}
 
 		return nil

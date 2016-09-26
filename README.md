@@ -19,6 +19,9 @@ Please visit the [WIKI](http://github.com/heketi/heketi/wiki) for project docume
 # Demo
 Please visit [Vagrant-Heketi](https://github.com/heketi/vagrant-heketi) to try out the demo.
 
+# Community
+email list TBD
+
 # Talks
 
 * DevNation 2016

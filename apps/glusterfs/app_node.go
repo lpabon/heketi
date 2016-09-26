@@ -222,12 +222,12 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 			return err
 		} else if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return err
+			return logger.Err(err)
 		}
 
 		// Check the node can be deleted
 		if !node.IsDeleteOk() {
-			http.Error(w, ErrConflict.Error(), http.StatusConflict)
+			http.Error(w, node.ConflictString(), http.StatusConflict)
 			return ErrConflict
 		}
 
@@ -238,7 +238,7 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 			return err
 		} else if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return err
+			return logger.Err(err)
 		}
 
 		// Get a node in the cluster to execute the Gluster peer command
@@ -248,8 +248,7 @@ func (a *App) NodeDelete(w http.ResponseWriter, r *http.Request) {
 			for index := range cluster.Info.Nodes {
 				peer_node, err = cluster.NodeEntryFromClusterIndex(tx, index)
 				if err != nil {
-					logger.Err(err)
-					return err
+					return logger.Err(err)
 				}
 
 				// Cannot peer detach from the same node, we need to execute

@@ -19,7 +19,6 @@ package glusterfs
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"sort"
 
@@ -97,11 +96,25 @@ func (d *DeviceEntry) Register(tx *bolt.Tx) error {
 		d.registerKey(),
 		[]byte(d.Id()))
 	if err == ErrKeyExists {
-		return errors.New(
-			fmt.Sprintf("Device %v is already used on node %v by device %v",
-				d.Info.Name,
-				d.NodeId,
-				string(val)))
+
+		// Now check if the node actually exists.  This only happens
+		// when the application crashes and it doesn't clean up stale
+		// registrations.
+		conflictId := string(val)
+		_, err := NewDeviceEntryFromId(tx, conflictId)
+		if err == ErrNotFound {
+			// (stale) There is actually no conflict, we can allow
+			// the registration
+			return nil
+		} else if err != nil {
+			return logger.Err(err)
+		}
+
+		return fmt.Errorf("Device %v is already used on node %v by device %v",
+			d.Info.Name,
+			d.NodeId,
+			conflictId)
+
 	} else if err != nil {
 		return err
 	}
@@ -148,12 +161,16 @@ func (d *DeviceEntry) IsDeleteOk() bool {
 	return true
 }
 
+func (d *DeviceEntry) ConflictString() string {
+	return fmt.Sprintf("Unable to delete device [%v] because it contains bricks", d.Info.Id)
+}
+
 func (d *DeviceEntry) Delete(tx *bolt.Tx) error {
 	godbc.Require(tx != nil)
 
 	// Check if the devices still has drives
 	if !d.IsDeleteOk() {
-		logger.Warning("Unable to delete device [%v] because it contains bricks", d.Info.Id)
+		logger.Warning(d.ConflictString())
 		return ErrConflict
 	}
 
