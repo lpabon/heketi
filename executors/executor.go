@@ -54,6 +54,7 @@ type BrickRequest struct {
 	TpSize           uint64
 	Size             uint64
 	PoolMetadataSize uint64
+	Gid              int
 }
 
 // Returns information about the location of the brick

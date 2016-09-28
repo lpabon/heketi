@@ -30,6 +30,7 @@ type BrickEntry struct {
 	Info             api.BrickInfo
 	TpSize           uint64
 	PoolMetadataSize uint64
+	gidRequested     int
 }
 
 func BrickList(tx *bolt.Tx) ([]string, error) {

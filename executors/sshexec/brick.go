@@ -97,7 +97,7 @@ func (s *SshExecutor) BrickCreate(host string,
 		fmt.Sprintf("mkdir %v/brick", mountpoint),
 
 		// Set GID on brick
-		fmt.Sprintf("chown :1000 %v/brick", mountpoint),
+		fmt.Sprintf("chown :%v %v/brick", brick.Gid, mountpoint),
 
 		// Set writable by GID and UID
 		fmt.Sprintf("chmod 775 %v/brick", mountpoint),
