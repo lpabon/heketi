@@ -48,7 +48,7 @@ type VolumeEntry struct {
 	Info         api.VolumeInfo
 	Bricks       sort.StringSlice
 	Durability   VolumeDurability
-	gidRequested int
+	gidRequested int64
 }
 
 func VolumeList(tx *bolt.Tx) ([]string, error) {
