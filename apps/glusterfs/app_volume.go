@@ -47,8 +47,8 @@ func (a *App) VolumeCreate(w http.ResponseWriter, r *http.Request) {
 	case msg.Gid < 0:
 		http.Error(w, "Bad group id less than zero", http.StatusBadRequest)
 		return
-	case msg.Gid > math.MaxInt32:
-		http.Error(w, "Bad group id greater than 2**32", http.StatusBadRequest)
+	case msg.Gid >= math.MaxInt32:
+		http.Error(w, "Bad group id equal or greater than 2**32", http.StatusBadRequest)
 		return
 	}
 

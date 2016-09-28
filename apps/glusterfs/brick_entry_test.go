@@ -35,14 +35,16 @@ func TestNewBrickEntry(t *testing.T) {
 	deviceid := "abc"
 	nodeid := "def"
 	ps := size
+	gid := int64(1)
 
-	b := NewBrickEntry(size, tpsize, ps, deviceid, nodeid)
+	b := NewBrickEntry(size, tpsize, ps, deviceid, nodeid, gid)
 	tests.Assert(t, b.Info.Id != "")
 	tests.Assert(t, b.TpSize == tpsize)
 	tests.Assert(t, b.PoolMetadataSize == ps)
 	tests.Assert(t, b.Info.DeviceId == deviceid)
 	tests.Assert(t, b.Info.NodeId == nodeid)
 	tests.Assert(t, b.Info.Size == size)
+	tests.Assert(t, b.gidRequested == gid)
 }
 
 func TestBrickEntryMarshal(t *testing.T) {
@@ -51,7 +53,8 @@ func TestBrickEntryMarshal(t *testing.T) {
 	deviceid := "abc"
 	nodeid := "def"
 	ps := size
-	m := NewBrickEntry(size, tpsize, ps, deviceid, nodeid)
+	gid := int64(1)
+	m := NewBrickEntry(size, tpsize, ps, deviceid, nodeid, gid)
 
 	buffer, err := m.Marshal()
 	tests.Assert(t, err == nil)
@@ -91,7 +94,7 @@ func TestNewBrickEntryFromId(t *testing.T) {
 	defer app.Close()
 
 	// Create a brick
-	b := NewBrickEntry(10, 20, 5, "abc", "def")
+	b := NewBrickEntry(10, 20, 5, "abc", "def", 1000)
 
 	// Save element in database
 	err := app.db.Update(func(tx *bolt.Tx) error {
@@ -119,7 +122,7 @@ func TestNewBrickEntrySaveDelete(t *testing.T) {
 	defer app.Close()
 
 	// Create a brick
-	b := NewBrickEntry(10, 20, 5, "abc", "def")
+	b := NewBrickEntry(10, 20, 5, "abc", "def", 1000)
 
 	// Save element in database
 	err := app.db.Update(func(tx *bolt.Tx) error {
@@ -164,7 +167,7 @@ func TestNewBrickEntryNewInfoResponse(t *testing.T) {
 	defer app.Close()
 
 	// Create a brick
-	b := NewBrickEntry(10, 20, 5, "abc", "def")
+	b := NewBrickEntry(10, 20, 5, "abc", "def", 1000)
 
 	// Save element in database
 	err := app.db.Update(func(tx *bolt.Tx) error {
@@ -195,7 +198,7 @@ func TestBrickEntryDestroyCheck(t *testing.T) {
 	defer app.Close()
 
 	// Create a brick
-	b := NewBrickEntry(10, 20, 5, "abc", "node")
+	b := NewBrickEntry(10, 20, 5, "abc", "node", 1000)
 	n := NewNodeEntry()
 	n.Info.Id = "node"
 	n.Info.Hostnames.Manage = []string{"manage"}
