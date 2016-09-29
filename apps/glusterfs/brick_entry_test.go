@@ -53,7 +53,7 @@ func TestBrickEntryMarshal(t *testing.T) {
 	deviceid := "abc"
 	nodeid := "def"
 	ps := size
-	gid := int64(1)
+	gid := int64(0)
 	m := NewBrickEntry(size, tpsize, ps, deviceid, nodeid, gid)
 
 	buffer, err := m.Marshal()
@@ -94,7 +94,7 @@ func TestNewBrickEntryFromId(t *testing.T) {
 	defer app.Close()
 
 	// Create a brick
-	b := NewBrickEntry(10, 20, 5, "abc", "def", 1000)
+	b := NewBrickEntry(10, 20, 5, "abc", "def", 0)
 
 	// Save element in database
 	err := app.db.Update(func(tx *bolt.Tx) error {
