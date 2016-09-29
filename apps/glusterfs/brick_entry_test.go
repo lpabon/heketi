@@ -226,3 +226,54 @@ func TestBrickEntryDestroyCheck(t *testing.T) {
 	err = b.DestroyCheck(app.db, app.executor)
 	tests.Assert(t, err == nil, err)
 }
+
+func TestBrickEntryCreate(t *testing.T) {
+	tmpfile := tests.Tempfile()
+	defer os.Remove(tmpfile)
+
+	// Create the app
+	app := NewTestApp(tmpfile)
+	defer app.Close()
+
+	// Set test values
+	size := uint64(10)
+	tpsize := uint64(20)
+	poolMetadataSize := uint64(5)
+	deviceid := "abc"
+	nodeid := "node"
+	gid := int64(1000)
+
+	// Create a brick
+	b := NewBrickEntry(size, tpsize, poolMetadataSize,
+		deviceid, nodeid, gid)
+	n := NewNodeEntry()
+	n.Info.Id = nodeid
+	n.Info.Hostnames.Manage = []string{"manage"}
+	n.Info.Hostnames.Storage = []string{"storage"}
+
+	// Save element in database
+	err := app.db.Update(func(tx *bolt.Tx) error {
+		err := n.Save(tx)
+		tests.Assert(t, err == nil)
+		return b.Save(tx)
+	})
+	tests.Assert(t, err == nil)
+
+	app.xo.MockBrickCreate = func(host string,
+		brick *executors.BrickRequest) (*executors.BrickInfo, error) {
+		bInfo := &executors.BrickInfo{
+			Path: "/mockpath",
+		}
+
+		tests.Assert(t, brick.Gid == gid)
+		tests.Assert(t, brick.Name == b.Info.Id)
+		tests.Assert(t, brick.PoolMetadataSize == poolMetadataSize)
+		tests.Assert(t, brick.Size == size)
+		tests.Assert(t, brick.TpSize == tpsize)
+		tests.Assert(t, brick.VgId == deviceid)
+
+		return bInfo, nil
+	}
+	err = b.Create(app.db, app.executor)
+	tests.Assert(t, err == nil)
+}
