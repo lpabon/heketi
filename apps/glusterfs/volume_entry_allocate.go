@@ -19,6 +19,7 @@ package glusterfs
 import (
 	"github.com/boltdb/bolt"
 	"github.com/heketi/heketi/pkg/utils"
+	"github.com/lpabon/godbc"
 )
 
 func (v *VolumeEntry) allocBricksInCluster(db *bolt.DB,
@@ -196,18 +197,18 @@ func (v *VolumeEntry) allocBricks(
 
 }
 
-func (v *VolumeEntry) replaceBrick(db *bolt.db,
+func (v *VolumeEntry) allocateReplacementBrick(db *bolt.db,
 	allocator Allocator,
-	failedBrickId string) *BrickEntry {
+	failedBrickIdEntry *BrickEntry) *BrickEntry {
+
+	// Get allocator generator
+	deviceCh, done, errc := allocator.GetNodes(cluster, failedBrickId)
+	defer func() {
+		close(done)
+	}()
 
 	err := db.Update(func(tx *bolt.Tx) error {
 		var err error
-
-		// Get information about the failed brick
-		failedBrickEntry, err = NewBrickEntryFromId(tx, failedBrickId)
-		if err != nil {
-			return logger.Err(err)
-		}
 
 		// Get information about the rest of the bricks in the set
 		brickList := make([]*BrickEntry, len(brickIds))
@@ -226,6 +227,7 @@ func (v *VolumeEntry) replaceBrick(db *bolt.db,
 
 		// Go through ring looking for a replacement
 		for deviceId := range deviceCh {
+			godbc.Check(deviceId != failedBrickIdEntry.Info.DeviceId)
 
 			// Get device entry
 			device, err := NewDeviceEntryFromId(tx, deviceId)
@@ -272,8 +274,9 @@ func (v *VolumeEntry) replaceBrick(db *bolt.db,
 					failedBrickEntry.Info.NodeId,
 					brick.Info.Id,
 					brick.Info.NodeId)
-				replacementBrickEntry = brick
-				break
+
+				// Return
+				return brick
 			}
 		}
 

@@ -576,6 +576,7 @@ func (v *VolumeEntry) ReplaceBrick(
 	executor executors.Executor,
 	failedBrickId string) error {
 
+	// Get all current bricks on the volume
 	originalBrickIds := v.BricksIds()
 
 	// Check if the brick id is valid and is part of this volume
@@ -587,95 +588,24 @@ func (v *VolumeEntry) ReplaceBrick(
 
 	// Remove failed brick from the ring
 
-	// Get allocator generator
-	deviceCh, done, errc := allocator.GetNodes(cluster, failedBrickId)
-	defer func() {
-		close(done)
-	}()
-
-	// Find a replacement brick
-	var replacementBrickEntry *BrickEntry
+	// Get information about the failed brick
 	var failedBrickEntry *BrickEntry
 	err := db.Update(func(tx *bolt.Tx) error {
 		var err error
 
-		// Get information about the failed brick
 		failedBrickEntry, err = NewBrickEntryFromId(tx, failedBrickId)
 		if err != nil {
-			return logger.Err(err)
+			return err
 		}
-
-		// Get information about the rest of the bricks in the set
-		brickList := make([]*BrickEntry, len(brickIds))
-		for b, failedBrickId := range brickIds {
-			var err error
-			brickList[b], err = NewBrickEntryFromId(tx, failedBrickId)
-			if err != nil {
-				return logger.LogError(
-					"Unable to get brick information from db: %v", err)
-			}
-		}
-
-		// :TODO: GID needs to be determined or does replace brick take
-		// care of that?
-		v.gidRequested = 0
-
-		// Go through ring looking for a replacement
-		for deviceId := range deviceCh {
-
-			// Get device entry
-			device, err := NewDeviceEntryFromId(tx, deviceId)
-			if err != nil {
-				return logger.Err(err)
-			}
-
-			// Do not allow a device from the same node to be
-			// in the set
-			deviceOk := true
-			for _, brickInSet := range brickList {
-				if brickInSet.Info.NodeId == device.NodeId {
-					deviceOk = false
-				}
-			}
-
-			if !deviceOk {
-				continue
-			}
-
-			// Try to allocate a brick on this device
-			brick := device.NewBrickEntry(failedBrickEntry.Info.Size,
-				float64(v.Info.Snapshot.Factor),
-				v.gidRequested)
-
-			// Determine if it was successful
-			if brick != nil {
-
-				// Add brick to device
-				device.BrickAdd(brick.Id())
-
-				// Add brick to volume
-				v.BrickAdd(brick.Id())
-
-				// Save values
-				err := device.Save(tx)
-				if err != nil {
-					return err
-				}
-
-				// Found!
-				logger.Debug("Replacing brick %v on %v with %v on %v",
-					failedBrickEntry.Info.Id,
-					failedBrickEntry.Info.NodeId,
-					brick.Info.Id,
-					brick.Info.NodeId)
-				replacementBrickEntry = brick
-				break
-			}
-		}
-
 	})
 	if err != nil {
 		return err
+	}
+
+	// Get replacement brick
+	replacementBrickEntry := allocateReplacementBrick(db, allocator, failedBrickEntry)
+	if nil == replacementBrickEntry {
+		return logger.LogError("Unable to find a replacement disk for %v", failedBrickId)
 	}
 
 	// Create brick
