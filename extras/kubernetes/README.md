@@ -16,10 +16,10 @@ $ kubectl get nodes
 * Deploy gluster container onto specified node:
 
 ```
-$ sed -e 's#<GLUSTERFS_NODE>#"..type your node here.."#' | kubectl creat -f -
+$ sed -e \
+   's#<GLUSTERFS_NODE>#..type your node name here..#' \
+   glusterfs-deployment.json | kubectl creat -f -
 ```
-
-> NOTE: The `""` are important around the node name
 
 Repeat as needed.
 
