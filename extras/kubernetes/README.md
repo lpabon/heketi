@@ -37,19 +37,15 @@ $ kubectl create -f heketi-service-account.json
 $ heketi_secret=$(kubectl get sa heketi-service-account -o="go-template" --template="{{range .secrets}}{{.name}}{{end}}")
 ```
 
-* Determine your Kubernetes API HOST
+* Deploy deploy-heketi.  Before deploying you will need to determine the Kubernetes API endpoint and namespace.
 
-```
-$ context=$(kubectl config current-context)
-$ cluster=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$context\")].context.cluster}")
-$ kubeapi=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$cluster\")].cluster.server}")
-```
-
-* Deploy deploy-heketi
+In this example, we will use `https://1.1.1.1:443` as our Kubernetes API endpoint, and `default` as the namespace:
 
 ```
 $ sed -e "s#<HEKETI_KUBE_NAMESPACE>#\"default\"#" \
       -e "s#<HEKETI_KUBE_SECRETNAME>#\"$heketi_secret\"#" \
-      -e "s#<HEKETI_KUBE_APIHOST>#\"$kubeapi\"#" heketi-deployment.json | kubectl create -f -
+      -e "s#<HEKETI_KUBE_APIHOST>#\"http://1.1.1.1:443\"#" deploy-heketi-deployment.json | kubectl create -f -
 ```
+
+Please refer to the wiki Kubernetes Deployment page for more information
 
