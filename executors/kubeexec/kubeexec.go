@@ -135,6 +135,11 @@ func setWithEnvVariables(config *KubeConfig) {
 		config.NamespaceFile = env
 	}
 
+	env = os.Getenv("HEKETI_KUBE_DAEMONSET_NODESELECTOR")
+	if "" != env {
+		config.DaemonSetNodeSelector = env
+	}
+
 	// Use POD names
 	env = os.Getenv("HEKETI_KUBE_USE_POD_NAMES")
 	if "" != env {
@@ -247,44 +252,13 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	var podName string
 	if k.config.UsePodNames {
 		podName = host
+	} else if k.config.DaemonSetNodeSelector != "" {
+		podName, err = k.getPodNameFromDaemonSet(conn, host)
 	} else {
-		// 'host' is actually the value for the label with a key
-		// of 'glusterid'
-		selector, err := labels.Parse(KubeGlusterFSPodLabelKey + "==" + host)
-		if err != nil {
-			logger.Err(err)
-			return nil, fmt.Errorf("Unable to get pod with a matching label of %v==%v",
-				KubeGlusterFSPodLabelKey, host)
-		}
-
-		// Get a list of pods
-		pods, err := conn.Pods(k.config.Namespace).List(api.ListOptions{
-			LabelSelector: selector,
-			FieldSelector: fields.Everything(),
-		})
-		if err != nil {
-			logger.Err(err)
-			return nil, fmt.Errorf("Failed to get list of pods")
-		}
-
-		numPods := len(pods.Items)
-		if numPods == 0 {
-			// No pods found with that label
-			err := fmt.Errorf("No pods with the label '%v=%v' were found",
-				KubeGlusterFSPodLabelKey, host)
-			logger.Critical(err.Error())
-			return nil, err
-
-		} else if numPods > 1 {
-			// There are more than one pod with the same label
-			err := fmt.Errorf("Found %v pods with the sharing the same label '%v=%v'",
-				numPods, KubeGlusterFSPodLabelKey, host)
-			logger.Critical(err.Error())
-			return nil, err
-		}
-
-		// Get pod name
-		podName = pods.Items[0].ObjectMeta.Name
+		podName, err = k.getPodNameByLabel(conn, host)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	for index, command := range commands {
@@ -350,4 +324,81 @@ func (k *KubeExecutor) readAllLinesFromFile(filename string) (string, error) {
 		return "", logger.LogError("Error reading %v file: %v", filename, err.Error())
 	}
 	return string(fileBytes), nil
+}
+
+func (k *KubeExecutor) getPodNameByLabel(conn *client.Client,
+	host string) (string, error) {
+	// 'host' is actually the value for the label with a key
+	// of 'glusterid'
+	selector, err := labels.Parse(KubeGlusterFSPodLabelKey + "==" + host)
+	if err != nil {
+		logger.Err(err)
+		return "", logger.LogError("Unable to get pod with a matching label of %v==%v",
+			KubeGlusterFSPodLabelKey, host)
+	}
+
+	// Get a list of pods
+	pods, err := conn.Pods(k.config.Namespace).List(api.ListOptions{
+		LabelSelector: selector,
+		FieldSelector: fields.Everything(),
+	})
+	if err != nil {
+		logger.Err(err)
+		return "", fmt.Errorf("Failed to get list of pods")
+	}
+
+	numPods := len(pods.Items)
+	if numPods == 0 {
+		// No pods found with that label
+		err := fmt.Errorf("No pods with the label '%v=%v' were found",
+			KubeGlusterFSPodLabelKey, host)
+		logger.Critical(err.Error())
+		return "", err
+
+	} else if numPods > 1 {
+		// There are more than one pod with the same label
+		err := fmt.Errorf("Found %v pods with the sharing the same label '%v=%v'",
+			numPods, KubeGlusterFSPodLabelKey, host)
+		logger.Critical(err.Error())
+		return "", err
+	}
+
+	// Get pod name
+	return pods.Items[0].ObjectMeta.Name, nil
+}
+
+func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
+	host string) (string, error) {
+	// 'host' is actually the value for the label with a key
+	// of 'glusterid'
+	selector, err := labels.Parse(k.config.DaemonSetNodeSelector)
+	if err != nil {
+		return "", logger.LogError("Unable to create selector of %v: %v",
+			k.config.DaemonSetNodeSelector, err.Error())
+	}
+
+	// Get a list of pods
+	pods, err := conn.Pods(k.config.Namespace).List(api.ListOptions{
+		LabelSelector: selector,
+		FieldSelector: fields.Everything(),
+	})
+	if err != nil {
+		logger.Err(err)
+		return "", logger.LogError("Failed to get list of pods")
+	}
+
+	// Go through the pods looking for the node
+	var glusterPod string
+	for _, pod := range pods.Items {
+		if pod.Spec.NodeName == host {
+			glusterPod = pod.ObjectMeta.Name
+		}
+	}
+	if glusterPod == "" {
+		return "", logger.LogError("Unable to find a Gluster Pod on host %v"+
+			"with DaemonSet nodeSelector %v", host, k.config.DaemonSetNodeSelector)
+	}
+
+	// Get pod name
+	return glusterPod, nil
 }
