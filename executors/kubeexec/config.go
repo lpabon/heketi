@@ -25,9 +25,9 @@ type KubeConfig struct {
 	// Use Secrets to get the Bearerkey
 	UseSecrets bool `json:"use_secrets"`
 
-	TokenFile             string `json:"token_file"`
-	NamespaceFile         string `json:"namespace_file"`
-	DaemonSetNodeSelector string `json:"daemonset_nodeselector"`
+	TokenFile        string `json:"token_file"`
+	NamespaceFile    string `json:"namespace_file"`
+	GlusterDaemonSet bool   `json:"gluster_daemonset"`
 
 	// Use POD name instead of using label
 	// to access POD

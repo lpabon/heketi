@@ -128,9 +128,16 @@ func setWithEnvVariables(config *KubeConfig) {
 		config.NamespaceFile = env
 	}
 
-	env = os.Getenv("HEKETI_KUBE_DAEMONSET_NODESELECTOR")
+	// Determine if Heketi should communicate with Gluster
+	// pods deployed by a DaemonSet
+	env = os.Getenv("HEKETI_KUBE_GLUSTER_DAEMONSET")
 	if "" != env {
-		config.DaemonSetNodeSelector = env
+		env = strings.ToLower(env)
+		if env[0] == 'y' || env[0] == '1' {
+			config.GlusterDaemonSet = true
+		} else if env[0] == 'n' || env[0] == '0' {
+			config.GlusterDaemonSet = false
+		}
 	}
 
 	// Use POD names
@@ -245,7 +252,7 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	var podName string
 	if k.config.UsePodNames {
 		podName = host
-	} else if k.config.DaemonSetNodeSelector != "" {
+	} else if k.config.GlusterDaemonSet {
 		podName, err = k.getPodNameFromDaemonSet(conn, host)
 	} else {
 		podName, err = k.getPodNameByLabel(conn, host)
@@ -364,10 +371,10 @@ func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
 	host string) (string, error) {
 	// 'host' is actually the value for the label with a key
 	// of 'glusterid'
-	selector, err := labels.Parse(k.config.DaemonSetNodeSelector)
+	selector, err := labels.Parse(KubeGlusterFSPodLabelKey)
 	if err != nil {
 		return "", logger.LogError("Unable to create selector of %v: %v",
-			k.config.DaemonSetNodeSelector, err.Error())
+			KubeGlusterFSPodLabelKey, err.Error())
 	}
 
 	// Get a list of pods
@@ -389,7 +396,7 @@ func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
 	}
 	if glusterPod == "" {
 		return "", logger.LogError("Unable to find a Gluster Pod on host %v"+
-			"with DaemonSet nodeSelector %v", host, k.config.DaemonSetNodeSelector)
+			"with DaemonSet nodeSelector %v", host, KubeGlusterFSPodLabelKey)
 	}
 
 	// Get pod name
