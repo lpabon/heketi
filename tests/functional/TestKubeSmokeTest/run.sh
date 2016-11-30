@@ -145,7 +145,7 @@ teardown
 setup
 
 ### TESTS ###
-for kubetest in testHeketiRpc.sh ; do #test*.sh ; do
+for kubetest in test*.sh ; do
    test_setup
    println "TEST $kubetest"
    bash $kubetest; result=$?
