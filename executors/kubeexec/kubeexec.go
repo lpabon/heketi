@@ -302,7 +302,7 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 				command, podName, err, b.String(), berr.String())
 			return nil, fmt.Errorf("Unable to execute command on %v: %v", podName, berr.String())
 		}
-		logger.Debug("Host: %v Command: %v\nResult: %v", podName, command, b.String())
+		logger.Debug("Host: %v Pod: %v Command: %v\nResult: %v", host, podName, command, b.String())
 		buffers[index] = b.String()
 
 	}

@@ -33,6 +33,14 @@ create_fake_application() {
 	kubectl exec $pod -- chmod +x /bin/${app} || fail "Unable to chmod +x /bin/${app}"
 }
 
+create_bash() {
+	pod=$1
+	app="bash"
+	kubectl exec $pod -- sh -c "echo '#!/bin/sh' > /bin/${app}" || fail "Unable to create /bin/${app}"
+	kubectl exec $pod -- sh -c "echo 'sh \$@' >> /bin/${app}" || fail "Unable to add to /bin/${app}"
+	kubectl exec $pod -- chmod +x /bin/${app} || fail "Unable to chmod +x /bin/${app}"
+}
+
 create_fake_vgdisplay() {
 	pod=$1
 	app=vgdisplay
@@ -56,10 +64,12 @@ start_mock_gluster_container() {
 
 	# Create fake gluster file
 	create_fake_application gluster$1 "gluster"
-	create_fake_application gluster$1 "bash"
 	create_fake_application gluster$1 "pvcreate"
 	create_fake_application gluster$1 "vgcreate"
+	create_fake_application gluster$1 "pvremove"
+	create_fake_application gluster$1 "vgremove"
 	create_fake_vgdisplay gluster$1
+	create_bash gluster$1
 }
 
 setup_all_pods() {
@@ -112,9 +122,13 @@ test_peer_probe() {
 
 	CLUSTERID=$(heketi-cli cluster list | sed -e '$!d')
 
-	echo -e "\nAdd First Node"
-	heketi-cli node add --zone=1 --cluster=$CLUSTERID --management-host-name=gluster1 --storage-host-name=gluster1 || fail "Unable to add gluster1"
-	sleep 10000
+	echo -e "\nAdd Node"
+	heketi-cli node add --zone=1 --cluster=$CLUSTERID \
+		--management-host-name=minikube --storage-host-name=minikube || fail "Unable to add gluster1"
+
+	echo -e "\nAdd device"
+	nodeid=$(heketi-cli node list | awk '{print $1}' | awk -F: '{print $2}')
+	heketi-cli device add --name=/dev/fakedevice --node=$nodeid # || fail "Unable to add device"
 
 	echo -e "\nShow Topology"
 	heketi-cli topology info
