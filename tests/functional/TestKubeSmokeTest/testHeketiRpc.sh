@@ -26,12 +26,27 @@ display_information() {
 	kubectl get nodes
 }
 
+create_fake_application() {
+	pod=$1
+	app=$2
+	kubectl exec $pod -- sh -c "echo '#!/bin/sh' > /bin/${app}" || fail "Unable to create /bin/${app}"
+	kubectl exec $pod -- chmod +x /bin/${app} || fail "Unable to chmod +x /bin/${app}"
+}
+
+create_fake_vgdisplay() {
+	pod=$1
+	app=vgdisplay
+	kubectl exec $pod -- sh -c "echo '#!/bin/sh' > /bin/${app}" || fail "Unable to create /bin/${app}"
+	kubectl exec $pod -- sh -c "echo 'echo mock:r/w:772:-1:0:2:2:-1:0:1:1:249278464:4096:60859:60859:0:FcehVp-rc3l-xTBH-ZGxK-53G2-GrOr-bDQzQF' >> /bin/${app}" || fail "Unable to add to /bin/${app}"
+	kubectl exec $pod -- chmod +x /bin/${app} || fail "Unable to chmod +x /bin/${app}"
+}
+
 start_mock_gluster_container() {
-# Use a busybox container
-  kubectl run gluster$1 \
-	  --restart=Never \
+	# Use a busybox container
+	  kubectl run gluster$1 \
+		--restart=Never \
 		--image=busybox \
-		--labels=glusterfs-node=gluster$1 \
+		--labels=glusterfs-node=daemonset \
 		--command -- sleep 10000 || fail "Unable to start gluster$1"
 
 	# Wait until it is running
@@ -40,12 +55,11 @@ start_mock_gluster_container() {
 	done
 
 	# Create fake gluster file
-	kubectl exec gluster$1 -- sh -c "echo '#!/bin/sh' > /bin/gluster" || fail "Unable to create /bin/gluster"
-	kubectl exec gluster$1 -- chmod +x /bin/gluster || fail "Unable to chmod +x /bin/gluster"
-
-	# Create fake bash file
-	kubectl exec gluster$1 -- sh -c "echo '#!/bin/sh' > /bin/bash" || fail "Unable to create /bin/bash"
-	kubectl exec gluster$1 -- chmod +x /bin/bash || fail "Unable to chmod +x /bin/bash"
+	create_fake_application gluster$1 "gluster"
+	create_fake_application gluster$1 "bash"
+	create_fake_application gluster$1 "pvcreate"
+	create_fake_application gluster$1 "vgcreate"
+	create_fake_vgdisplay gluster$1
 }
 
 setup_all_pods() {
@@ -55,7 +69,7 @@ setup_all_pods() {
 	echo -e "\nCreate a ServiceAccount"
 	kubectl create -f $RESOURCES_DIR/heketi-service-account.yaml || fail "Unable to create a serviceAccount"
 
-	KUBESEC=$(kubectl get sa heketi-service-account -o="go-template" --template="{{range .secrets}}{{.name}}{{end}}")
+	KUBESEC=$(kubectl get sa heketi-service-account -o="go-template" --template="{{(index .secrets 0).name}}")
 	KUBEAPI=https://$(minikube ip):8443
 
 	echo -e "\nSecret is = $KUBESEC"
@@ -65,7 +79,7 @@ setup_all_pods() {
 
 	# Start Heketi
 	echo -e "\nStart Heketi container"
-    sed -e "s#heketi/heketi#heketi/heketi:ci#" \
+    sed -e "s#heketi/heketi:dev#heketi/heketi:ci#" \
         -e "s#Always#IfNotPresent#" \
         -e "s#<HEKETI_KUBE_SECRETNAME>#\"$KUBESEC\"#" \
         -e "s#<HEKETI_KUBE_APIHOST>#\"$KUBEAPI\"#" \
@@ -90,7 +104,6 @@ setup_all_pods() {
 
 	echo -e "\nStart gluster mock container"
 	start_mock_gluster_container 1
-	start_mock_gluster_container 2
 }
 
 test_peer_probe() {
@@ -101,9 +114,7 @@ test_peer_probe() {
 
 	echo -e "\nAdd First Node"
 	heketi-cli node add --zone=1 --cluster=$CLUSTERID --management-host-name=gluster1 --storage-host-name=gluster1 || fail "Unable to add gluster1"
-
-	echo -e "\nAdd Second Node"
-	heketi-cli node add --zone=2 --cluster=$CLUSTERID --management-host-name=gluster2 --storage-host-name=gluster2 || fail "Unable to add gluster2"
+	sleep 10000
 
 	echo -e "\nShow Topology"
 	heketi-cli topology info
