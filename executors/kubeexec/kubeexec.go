@@ -13,18 +13,20 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/openshift/origin/pkg/cmd/util/tokencmd"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/remotecommand"
 	"k8s.io/kubernetes/pkg/fields"
 	kubeletcmd "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
 	"k8s.io/kubernetes/pkg/labels"
+	certutil "k8s.io/kubernetes/pkg/util/cert"
 
 	"github.com/lpabon/godbc"
 
@@ -34,6 +36,10 @@ import (
 
 const (
 	KubeGlusterFSPodLabelKey = "glusterfs-node"
+	kubeServiceAccountDir    = "/var/run/secrets/kubernetes.io/serviceaccount/"
+	kubeNameSpaceFile        = kubeServiceAccountDir + v1.ServiceAccountNamespaceKey
+	kubeCAKeyFile            = kubeServiceAccountDir + v1.ServiceAccountRootCAKey
+	kubeTokenFile            = kubeServiceAccountDir + v1.ServiceAccountTokenKey
 )
 
 type KubeExecutor struct {
@@ -45,46 +51,11 @@ type KubeExecutor struct {
 }
 
 var (
-	logger       = utils.NewLogger("[kubeexec]", utils.LEVEL_DEBUG)
-	tokenCreator = tokencmd.RequestToken
+	logger = utils.NewLogger("[kubeexec]", utils.LEVEL_DEBUG)
 )
 
 func setWithEnvVariables(config *KubeConfig) {
-	// Check Host e.g. "https://myhost:8443"
-	env := os.Getenv("HEKETI_KUBE_APIHOST")
-	if "" != env {
-		config.Host = env
-	}
-
-	// Check certificate file
-	env = os.Getenv("HEKETI_KUBE_CERTFILE")
-	if "" != env {
-		config.CertFile = env
-	}
-
-	// Correct values are = y YES yes Yes Y true 1
-	// disable are n N no NO No
-	env = os.Getenv("HEKETI_KUBE_INSECURE")
-	if "" != env {
-		env = strings.ToLower(env)
-		if env[0] == 'y' || env[0] == '1' {
-			config.Insecure = true
-		} else if env[0] == 'n' || env[0] == '0' {
-			config.Insecure = false
-		}
-	}
-
-	// User login
-	env = os.Getenv("HEKETI_KUBE_USER")
-	if "" != env {
-		config.User = env
-	}
-
-	// Password for user
-	env = os.Getenv("HEKETI_KUBE_PASSWORD")
-	if "" != env {
-		config.Password = env
-	}
+	var env string
 
 	// Namespace / Project
 	env = os.Getenv("HEKETI_KUBE_NAMESPACE")
@@ -105,27 +76,6 @@ func setWithEnvVariables(config *KubeConfig) {
 		if err == nil {
 			config.SnapShotLimit = i
 		}
-	}
-
-	// Use secret for Auth
-	env = os.Getenv("HEKETI_KUBE_USE_SECRET")
-	if "" != env {
-		env = strings.ToLower(env)
-		if env[0] == 'y' || env[0] == '1' {
-			config.UseSecrets = true
-		} else if env[0] == 'n' || env[0] == '0' {
-			config.UseSecrets = false
-		}
-	}
-
-	env = os.Getenv("HEKETI_KUBE_TOKENFILE")
-	if "" != env {
-		config.TokenFile = env
-	}
-
-	env = os.Getenv("HEKETI_KUBE_NAMESPACEFILE")
-	if "" != env {
-		config.NamespaceFile = env
 	}
 
 	// Determine if Heketi should communicate with Gluster
@@ -168,16 +118,13 @@ func NewKubeExecutor(config *KubeConfig) (*KubeExecutor, error) {
 		k.Fstab = config.Fstab
 	}
 
-	// Check required values
-	if k.config.NamespaceFile != "" {
-		var err error
-		k.config.Namespace, err = k.readAllLinesFromFile(k.config.NamespaceFile)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// Get namespace
 	if k.config.Namespace == "" {
-		return nil, fmt.Errorf("Namespace must be provided in configuration")
+		var err error
+		k.config.Namespace, err = k.readAllLinesFromFile(kubeNameSpaceFile)
+		if err != nil {
+			return nil, logger.LogError("Namespace must be provided in configuration: %v")
+		}
 	}
 
 	// Show experimental settings
@@ -214,31 +161,9 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	buffers := make([]string, len(commands))
 
 	// Create a Kube client configuration
-	clientConfig := &restclient.Config{}
-	clientConfig.Host = k.config.Host
-	clientConfig.CertFile = k.config.CertFile
-	clientConfig.Insecure = k.config.Insecure
-
-	// Login
-	if k.config.UseSecrets == false &&
-		k.config.User != "" &&
-		k.config.Password != "" {
-
-		token, err := tokenCreator(clientConfig,
-			nil,
-			k.config.User,
-			k.config.Password)
-		if err != nil {
-			logger.Err(err)
-			return nil, fmt.Errorf("User %v credentials not accepted", k.config.User)
-		}
-		clientConfig.BearerToken = token
-	} else if k.config.UseSecrets {
-		var err error
-		clientConfig.BearerToken, err = k.readAllLinesFromFile(k.config.TokenFile)
-		if err != nil {
-			return nil, err
-		}
+	clientConfig, err := InClusterConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	// Get a client
@@ -401,4 +326,29 @@ func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
 
 	// Get pod name
 	return glusterPod, nil
+}
+
+func InClusterConfig() (*restclient.Config, error) {
+	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+	if len(host) == 0 || len(port) == 0 {
+		return nil, logger.LogError("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
+	}
+
+	token, err := ioutil.ReadFile(kubeTokenFile)
+	if err != nil {
+		return nil, err
+	}
+	tlsClientConfig := restclient.TLSClientConfig{}
+	if _, err := certutil.NewPool(kubeCAKeyFile); err != nil {
+		logger.LogError("Expected to load root CA config from %s, but got err: %v", kubeCAKeyFile, err)
+	} else {
+		tlsClientConfig.CAFile = kubeCAKeyFile
+	}
+
+	return &restclient.Config{
+		// TODO: switch to using cluster DNS.
+		Host:            "https://" + net.JoinHostPort(host, port),
+		BearerToken:     string(token),
+		TLSClientConfig: tlsClientConfig,
+	}, nil
 }
