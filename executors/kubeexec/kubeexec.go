@@ -34,8 +34,6 @@ const (
 	KubeGlusterFSPodLabelKey = "glusterfs-node"
 	kubeServiceAccountDir    = "/var/run/secrets/kubernetes.io/serviceaccount/"
 	kubeNameSpaceFile        = kubeServiceAccountDir + v1.ServiceAccountNamespaceKey
-	kubeCAKeyFile            = kubeServiceAccountDir + v1.ServiceAccountRootCAKey
-	kubeTokenFile            = kubeServiceAccountDir + v1.ServiceAccountTokenKey
 )
 
 type KubeExecutor struct {
@@ -43,7 +41,11 @@ type KubeExecutor struct {
 	sshexec.SshExecutor
 
 	// save kube configuration
-	config *KubeConfig
+	config     *KubeConfig
+	namespace  string
+	kube       *client.Clientset
+	rest       restclient.Interface
+	kubeConfig *restclient.Config
 }
 
 var (
@@ -115,12 +117,33 @@ func NewKubeExecutor(config *KubeConfig) (*KubeExecutor, error) {
 	}
 
 	// Get namespace
+	var err error
 	if k.config.Namespace == "" {
-		var err error
 		k.config.Namespace, err = k.readAllLinesFromFile(kubeNameSpaceFile)
 		if err != nil {
 			return nil, logger.LogError("Namespace must be provided in configuration: %v")
 		}
+	}
+	k.namespace = k.config.Namespace
+
+	// Create a Kube client configuration
+	k.kubeConfig, err = restclient.InClusterConfig()
+	if err != nil {
+		return nil, logger.LogError("Unable to create configuration for Kubernetes: %v", err)
+	}
+
+	// Get a raw REST client.  This is still needed for kube-exec
+	restCore, err := coreclient.NewForConfig(k.kubeConfig)
+	if err != nil {
+		return nil, logger.LogError("Unable to create a client connection: %v", err)
+	}
+	k.rest = restCore.RESTClient()
+
+	// Get a Go-client for Kubernetes
+	k.kube, err = client.NewForConfig(k.kubeConfig)
+	if err != nil {
+		logger.Err(err)
+		return nil, fmt.Errorf("Unable to create a client set")
 	}
 
 	// Show experimental settings
@@ -156,41 +179,24 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	// Used to return command output
 	buffers := make([]string, len(commands))
 
-	// Create a Kube client configuration
-	clientConfig, err := restclient.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// Get a raw REST client.  This is still needed for kube-exec
-	conn, err := coreclient.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Err(err)
-		return nil, fmt.Errorf("Unable to create a client connection")
-	}
-
-	// Get a Go-client for Kubernetes
-	kube, err := client.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Err(err)
-		return nil, fmt.Errorf("Unable to create a client set")
-	}
-
 	// Get pod name
-	var podName string
+	var (
+		podName string
+		err     error
+	)
 	if k.config.UsePodNames {
 		podName = host
 	} else if k.config.GlusterDaemonSet {
-		podName, err = k.getPodNameFromDaemonSet(kube, host)
+		podName, err = k.getPodNameFromDaemonSet(host)
 	} else {
-		podName, err = k.getPodNameByLabel(kube, host)
+		podName, err = k.getPodNameByLabel(host)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	// Get container name
-	podSpec, err := kube.Core().Pods(k.config.Namespace).Get(podName)
+	podSpec, err := k.kube.Core().Pods(k.namespace).Get(podName)
 	if err != nil {
 		return nil, logger.LogError("Unable to get pod spec for %v: %v",
 			podName, err)
@@ -205,10 +211,10 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 		// SUDO is *not* supported
 
 		// Create REST command
-		req := conn.RESTClient().Post().
+		req := k.rest.Post().
 			Resource(resource).
 			Name(podName).
-			Namespace(k.config.Namespace).
+			Namespace(k.namespace).
 			SubResource("exec").
 			Param("container", containerName)
 		req.VersionedParams(&api.PodExecOptions{
@@ -219,7 +225,7 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 		}, api.ParameterCodec)
 
 		// Create SPDY connection
-		exec, err := remotecommand.NewExecutor(clientConfig, "POST", req.URL())
+		exec, err := remotecommand.NewExecutor(k.kubeConfig, "POST", req.URL())
 		if err != nil {
 			logger.Err(err)
 			return nil, fmt.Errorf("Unable to setup a session with %v", podName)
@@ -264,10 +270,9 @@ func (k *KubeExecutor) readAllLinesFromFile(filename string) (string, error) {
 	return string(fileBytes), nil
 }
 
-func (k *KubeExecutor) getPodNameByLabel(kube *client.Clientset,
-	host string) (string, error) {
+func (k *KubeExecutor) getPodNameByLabel(host string) (string, error) {
 	// Get a list of pods
-	pods, err := kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+	pods, err := k.kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
 		LabelSelector: KubeGlusterFSPodLabelKey + "==" + host,
 	})
 	if err != nil {
@@ -295,10 +300,9 @@ func (k *KubeExecutor) getPodNameByLabel(kube *client.Clientset,
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func (k *KubeExecutor) getPodNameFromDaemonSet(kube *client.Clientset,
-	host string) (string, error) {
+func (k *KubeExecutor) getPodNameFromDaemonSet(host string) (string, error) {
 	// Get a list of pods
-	pods, err := kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+	pods, err := k.kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
 		LabelSelector: KubeGlusterFSPodLabelKey,
 	})
 	if err != nil {
@@ -321,30 +325,3 @@ func (k *KubeExecutor) getPodNameFromDaemonSet(kube *client.Clientset,
 	// Get pod name
 	return glusterPod, nil
 }
-
-/*
-func InClusterConfig() (*restclient.Config, error) {
-	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(host) == 0 || len(port) == 0 {
-		return nil, logger.LogError("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
-	}
-
-	token, err := ioutil.ReadFile(kubeTokenFile)
-	if err != nil {
-		return nil, err
-	}
-	tlsClientConfig := restclient.TLSClientConfig{}
-	if _, err := certutil.NewPool(kubeCAKeyFile); err != nil {
-		logger.LogError("Expected to load root CA config from %s, but got err: %v", kubeCAKeyFile, err)
-	} else {
-		tlsClientConfig.CAFile = kubeCAKeyFile
-	}
-
-	return &restclient.Config{
-		// TODO: switch to using cluster DNS.
-		Host:            "https://" + net.JoinHostPort(host, port),
-		BearerToken:     string(token),
-		TLSClientConfig: tlsClientConfig,
-	}, nil
-}
-*/

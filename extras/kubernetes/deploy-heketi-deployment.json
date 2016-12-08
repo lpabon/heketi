@@ -1,4 +1,11 @@
 {
+  "kind": "ServiceAccount",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "heketi-service-account"
+  }
+}
+{
   "kind": "Service",
   "apiVersion": "v1",
   "metadata": {
