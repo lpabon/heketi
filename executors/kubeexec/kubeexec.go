@@ -13,25 +13,20 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"strconv"
 	"strings"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
+	client "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
 	"k8s.io/kubernetes/pkg/client/restclient"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/remotecommand"
-	"k8s.io/kubernetes/pkg/fields"
 	kubeletcmd "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
-	"k8s.io/kubernetes/pkg/labels"
-	certutil "k8s.io/kubernetes/pkg/util/cert"
-
-	"github.com/lpabon/godbc"
 
 	"github.com/heketi/heketi/executors/sshexec"
 	"github.com/heketi/heketi/pkg/utils"
+	"github.com/lpabon/godbc"
 )
 
 const (
@@ -161,16 +156,23 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	buffers := make([]string, len(commands))
 
 	// Create a Kube client configuration
-	clientConfig, err := InClusterConfig()
+	clientConfig, err := restclient.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	// Get a client
-	conn, err := client.New(clientConfig)
+	//conn, err := client.NewForConfig(clientConfig)
+	conn, err := restclient.RESTClientFor(clientConfig)
 	if err != nil {
 		logger.Err(err)
 		return nil, fmt.Errorf("Unable to create a client connection")
+	}
+
+	clientset, err := client.NewForConfig(clientConfig)
+	if err != nil {
+		logger.Err(err)
+		return nil, fmt.Errorf("Unable to create a client set")
 	}
 
 	// Get pod name
@@ -178,9 +180,9 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	if k.config.UsePodNames {
 		podName = host
 	} else if k.config.GlusterDaemonSet {
-		podName, err = k.getPodNameFromDaemonSet(conn, host)
+		podName, err = k.getPodNameFromDaemonSet(clientset, host)
 	} else {
-		podName, err = k.getPodNameByLabel(conn, host)
+		podName, err = k.getPodNameByLabel(clientset, host)
 	}
 	if err != nil {
 		return nil, err
@@ -194,7 +196,7 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 		// SUDO is *not* supported
 
 		// Create REST command
-		req := conn.RESTClient.Post().
+		req := conn.Post().
 			Resource(resource).
 			Name(podName).
 			Namespace(k.config.Namespace).
@@ -251,21 +253,11 @@ func (k *KubeExecutor) readAllLinesFromFile(filename string) (string, error) {
 	return string(fileBytes), nil
 }
 
-func (k *KubeExecutor) getPodNameByLabel(conn *client.Client,
+func (k *KubeExecutor) getPodNameByLabel(conn *client.Clientset,
 	host string) (string, error) {
-	// 'host' is actually the value for the label with a key
-	// of 'glusterid'
-	selector, err := labels.Parse(KubeGlusterFSPodLabelKey + "==" + host)
-	if err != nil {
-		logger.Err(err)
-		return "", logger.LogError("Unable to get pod with a matching label of %v==%v",
-			KubeGlusterFSPodLabelKey, host)
-	}
-
 	// Get a list of pods
-	pods, err := conn.Pods(k.config.Namespace).List(api.ListOptions{
-		LabelSelector: selector,
-		FieldSelector: fields.Everything(),
+	pods, err := conn.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+		LabelSelector: KubeGlusterFSPodLabelKey + "==" + host,
 	})
 	if err != nil {
 		logger.Err(err)
@@ -292,20 +284,11 @@ func (k *KubeExecutor) getPodNameByLabel(conn *client.Client,
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
+func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Clientset,
 	host string) (string, error) {
-	// 'host' is actually the value for the label with a key
-	// of 'glusterid'
-	selector, err := labels.Parse(KubeGlusterFSPodLabelKey)
-	if err != nil {
-		return "", logger.LogError("Unable to create selector of %v: %v",
-			KubeGlusterFSPodLabelKey, err.Error())
-	}
-
 	// Get a list of pods
-	pods, err := conn.Pods(k.config.Namespace).List(api.ListOptions{
-		LabelSelector: selector,
-		FieldSelector: fields.Everything(),
+	pods, err := conn.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+		LabelSelector: KubeGlusterFSPodLabelKey,
 	})
 	if err != nil {
 		logger.Err(err)
@@ -328,6 +311,7 @@ func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Client,
 	return glusterPod, nil
 }
 
+/*
 func InClusterConfig() (*restclient.Config, error) {
 	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 	if len(host) == 0 || len(port) == 0 {
@@ -352,3 +336,4 @@ func InClusterConfig() (*restclient.Config, error) {
 		TLSClientConfig: tlsClientConfig,
 	}, nil
 }
+*/
