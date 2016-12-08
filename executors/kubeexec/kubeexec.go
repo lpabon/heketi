@@ -20,6 +20,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	client "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/remotecommand"
 	kubeletcmd "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
@@ -161,15 +162,15 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 		return nil, err
 	}
 
-	// Get a client
-	//conn, err := client.NewForConfig(clientConfig)
-	conn, err := restclient.RESTClientFor(clientConfig)
+	// Get a raw REST client.  This is still needed for kube-exec
+	conn, err := coreclient.NewForConfig(clientConfig)
 	if err != nil {
 		logger.Err(err)
 		return nil, fmt.Errorf("Unable to create a client connection")
 	}
 
-	clientset, err := client.NewForConfig(clientConfig)
+	// Get a Go-client for Kubernetes
+	kube, err := client.NewForConfig(clientConfig)
 	if err != nil {
 		logger.Err(err)
 		return nil, fmt.Errorf("Unable to create a client set")
@@ -180,13 +181,21 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 	if k.config.UsePodNames {
 		podName = host
 	} else if k.config.GlusterDaemonSet {
-		podName, err = k.getPodNameFromDaemonSet(clientset, host)
+		podName, err = k.getPodNameFromDaemonSet(kube, host)
 	} else {
-		podName, err = k.getPodNameByLabel(clientset, host)
+		podName, err = k.getPodNameByLabel(kube, host)
 	}
 	if err != nil {
 		return nil, err
 	}
+
+	// Get container name
+	podSpec, err := kube.Core().Pods(k.config.Namespace).Get(podName)
+	if err != nil {
+		return nil, logger.LogError("Unable to get pod spec for %v: %v",
+			podName, err)
+	}
+	containerName := podSpec.Spec.Containers[0].Name
 
 	for index, command := range commands {
 
@@ -196,15 +205,17 @@ func (k *KubeExecutor) ConnectAndExec(host, resource string,
 		// SUDO is *not* supported
 
 		// Create REST command
-		req := conn.Post().
+		req := conn.RESTClient().Post().
 			Resource(resource).
 			Name(podName).
 			Namespace(k.config.Namespace).
-			SubResource("exec")
+			SubResource("exec").
+			Param("container", containerName)
 		req.VersionedParams(&api.PodExecOptions{
-			Command: []string{"/bin/bash", "-c", command},
-			Stdout:  true,
-			Stderr:  true,
+			Container: containerName,
+			Command:   []string{"/bin/bash", "-c", command},
+			Stdout:    true,
+			Stderr:    true,
 		}, api.ParameterCodec)
 
 		// Create SPDY connection
@@ -253,10 +264,10 @@ func (k *KubeExecutor) readAllLinesFromFile(filename string) (string, error) {
 	return string(fileBytes), nil
 }
 
-func (k *KubeExecutor) getPodNameByLabel(conn *client.Clientset,
+func (k *KubeExecutor) getPodNameByLabel(kube *client.Clientset,
 	host string) (string, error) {
 	// Get a list of pods
-	pods, err := conn.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+	pods, err := kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
 		LabelSelector: KubeGlusterFSPodLabelKey + "==" + host,
 	})
 	if err != nil {
@@ -284,10 +295,10 @@ func (k *KubeExecutor) getPodNameByLabel(conn *client.Clientset,
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func (k *KubeExecutor) getPodNameFromDaemonSet(conn *client.Clientset,
+func (k *KubeExecutor) getPodNameFromDaemonSet(kube *client.Clientset,
 	host string) (string, error) {
 	// Get a list of pods
-	pods, err := conn.Core().Pods(k.config.Namespace).List(v1.ListOptions{
+	pods, err := kube.Core().Pods(k.config.Namespace).List(v1.ListOptions{
 		LabelSelector: KubeGlusterFSPodLabelKey,
 	})
 	if err != nil {
