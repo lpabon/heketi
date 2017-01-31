@@ -129,6 +129,7 @@ func (a *App) BackupToKubernetesSecret(
 			logger.LogError("Unable to save database to secret: %v", err)
 			return
 		}
+		logger.Info("Backup updated successfully")
 	} else if err != nil {
 		logger.LogError("Unable to create database secret: %v", err)
 		return
