@@ -157,6 +157,9 @@ func main() {
 		fmt.Println("Authorization loaded")
 	}
 
+	// TODO: Load only if necessary
+	n.UseFunc(glusterfsApp.BackupToKubernetesSecret)
+
 	// Add all endpoints after the middleware was added
 	n.UseHandler(heketiRouter)
 

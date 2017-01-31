@@ -16,8 +16,6 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/heketi/heketi/executors"
 	"github.com/heketi/heketi/executors/kubeexec"
@@ -350,26 +348,6 @@ func (a *App) Close() {
 	// Close the DB
 	a.db.Close()
 	logger.Info("Closed")
-}
-
-// Middleware function
-func (a *App) Auth(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-
-	// Value saved by the JWT middleware.
-	data := context.Get(r, "jwt")
-
-	// Need to change from interface{} to the jwt.Token type
-	token := data.(*jwt.Token)
-	claims := token.Claims.(jwt.MapClaims)
-
-	// Check access
-	if "user" == claims["iss"] && r.URL.Path != "/volumes" {
-		http.Error(w, "Administrator access required", http.StatusUnauthorized)
-		return
-	}
-
-	// Everything is clean
-	next(w, r)
 }
 
 func (a *App) Backup(w http.ResponseWriter, r *http.Request) {
