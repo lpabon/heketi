@@ -109,6 +109,7 @@ func (a *App) BackupToKubernetesSecret(
 	// Create a secret with backup
 	secret := &v1.Secret{}
 	secret.Kind = "Secret"
+	secret.Namespace = ns
 	secret.APIVersion = "v1"
 	secret.ObjectMeta.Name = "heketi-db-backup"
 	secret.ObjectMeta.Labels = map[string]string{
