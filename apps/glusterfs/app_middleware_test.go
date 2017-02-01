@@ -70,7 +70,7 @@ func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
 	}).Restore()
 
 	config_count := 0
-	defer tests.Patch(&newForConfig, func(c *restclient.Config) (*clientset.Clientset, error) {
+	defer tests.Patch(&newForConfig, func(c *restclient.Config) (clientset.Interface, error) {
 		config_count++
 		return nil, nil
 	})
@@ -118,13 +118,5 @@ func TestBackupToKubeSecretGoodBackup(t *testing.T) {
 	}
 	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
 	tests.Assert(t, incluster_count == 1)
-	tests.Assert(t, config_count == 0)
-
-	// Try with PUT verb
-	r = &http.Request{
-		Method: http.MethodPut,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
-	tests.Assert(t, incluster_count == 2)
-	tests.Assert(t, config_count == 0)
+	tests.Assert(t, config_count == 1)
 }
