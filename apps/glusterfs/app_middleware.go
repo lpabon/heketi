@@ -26,11 +26,10 @@ import (
 )
 
 var (
-	inClusterConfig = func() (*restclient.Config, error) {
-		return restclient.InClusterConfig()
+	inClusterConfig = restclient.InClusterConfig
+	newForConfig    = func(c *restclient.Config) (clientset.Interface, error) {
+		return clientset.NewForConfig(c)
 	}
-
-	newForConfig = clientset.NewForConfig
 	getNamespace = kubernetes.GetNamespace
 )
 
@@ -101,7 +100,7 @@ func (a *App) BackupToKubernetesSecret(
 	}
 
 	// Create client for secrets
-	secrets := c.Secrets(ns)
+	secrets := c.CoreV1().Secrets(ns)
 	if err != nil {
 		logger.Err(err)
 		return
