@@ -12,10 +12,12 @@ package glusterfs
 import (
 	"bytes"
 	"net/http"
+	"strings"
 
 	"github.com/boltdb/bolt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
+	"github.com/urfave/negroni"
 
 	"github.com/heketi/heketi/pkg/kubernetes"
 
@@ -60,10 +62,12 @@ func (a *App) BackupToKubernetesSecret(
 	next http.HandlerFunc) {
 
 	// Call the next middleware first
-	next(w, r)
+	responsew := negroni.NewResponseWriter(w)
+	next(responsew, r)
 
 	// Only backup for POST and PUT
-	if r.Method == http.MethodGet {
+	if !a.isAsyncDone(responsew, r) &&
+		r.Method == http.MethodGet {
 		return
 	}
 
@@ -139,4 +143,14 @@ func (a *App) BackupToKubernetesSecret(
 		return
 	}
 
+}
+
+func (a *App) isAsyncDone(
+	w negroni.ResponseWriter,
+	r *http.Request) bool {
+
+	return r.Method == http.MethodGet &&
+		strings.HasPrefix(r.URL.Path, ASYNC_ROUTE) &&
+		(w.Status() == http.StatusNoContent ||
+			w.Status() == http.StatusSeeOther)
 }
