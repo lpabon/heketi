@@ -18,6 +18,7 @@ import (
 	"github.com/heketi/heketi/pkg/utils"
 	"github.com/heketi/tests"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	fakeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/fake"
 	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
@@ -73,6 +74,43 @@ func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
 		config_count++
 		return nil, nil
 	})
+
+	// Now try with POST verb
+	r := &http.Request{
+		Method: http.MethodPost,
+	}
+	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	tests.Assert(t, incluster_count == 1)
+	tests.Assert(t, config_count == 0)
+
+	// Try with PUT verb
+	r = &http.Request{
+		Method: http.MethodPut,
+	}
+	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	tests.Assert(t, incluster_count == 2)
+	tests.Assert(t, config_count == 0)
+}
+
+func TestBackupToKubeSecretGoodBackup(t *testing.T) {
+	tmpfile := tests.Tempfile()
+	defer os.Remove(tmpfile)
+
+	// Create the app
+	app := NewTestApp(tmpfile)
+	defer app.Close()
+
+	incluster_count := 0
+	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
+		incluster_count++
+		return nil, nil
+	}).Restore()
+
+	config_count := 0
+	defer tests.Patch(&newForConfig, func(c *restclient.Config) (clientset.Interface, error) {
+		config_count++
+		return fakeclientset.NewSimpleClientset(), nil
+	}).Restore()
 
 	// Now try with POST verb
 	r := &http.Request{
