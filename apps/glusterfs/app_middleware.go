@@ -63,7 +63,7 @@ func (a *App) BackupToKubernetesSecret(
 	next(w, r)
 
 	// Only backup for POST and PUT
-	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+	if r.Method == http.MethodGet {
 		return
 	}
 
@@ -88,17 +88,6 @@ func (a *App) BackupToKubernetesSecret(
 		return
 	}
 
-	// Get a backup
-	var backup bytes.Buffer
-	err = a.db.View(func(tx *bolt.Tx) error {
-		_, err := tx.WriteTo(&backup)
-		return err
-	})
-	if err != nil {
-		logger.Err(err)
-		return
-	}
-
 	// Create client for secrets
 	secrets := c.CoreV1().Secrets(ns)
 	if err != nil {
@@ -106,33 +95,48 @@ func (a *App) BackupToKubernetesSecret(
 		return
 	}
 
-	// Create a secret with backup
-	secret := &v1.Secret{}
-	secret.Kind = "Secret"
-	secret.Namespace = ns
-	secret.APIVersion = "v1"
-	secret.ObjectMeta.Name = "heketi-db-backup"
-	secret.ObjectMeta.Labels = map[string]string{
-		"heketi":    "db",
-		"glusterfs": "heketi-db",
-	}
-	secret.Data = map[string][]byte{
-		"heketi.db": backup.Bytes(),
-	}
-
-	// Submit secret
-	_, err = secrets.Create(secret)
-	if apierrors.IsAlreadyExists(err) {
-		// It already exists, so just update it instead
-		_, err = secrets.Update(secret)
+	// Get a backup
+	err = a.db.View(func(tx *bolt.Tx) error {
+		var backup bytes.Buffer
+		_, err := tx.WriteTo(&backup)
 		if err != nil {
-			logger.LogError("Unable to save database to secret: %v", err)
-			return
+			return err
 		}
-		logger.Info("Backup updated successfully")
-	} else if err != nil {
-		logger.LogError("Unable to create database secret: %v", err)
+
+		// Create a secret with backup
+		secret := &v1.Secret{}
+		secret.Kind = "Secret"
+		secret.Namespace = ns
+		secret.APIVersion = "v1"
+		secret.ObjectMeta.Name = "heketi-db-backup"
+		secret.ObjectMeta.Labels = map[string]string{
+			"heketi":    "db",
+			"glusterfs": "heketi-db",
+		}
+		secret.Data = map[string][]byte{
+			"heketi.db": backup.Bytes(),
+		}
+
+		// Submit secret
+		_, err = secrets.Create(secret)
+		if apierrors.IsAlreadyExists(err) {
+			// It already exists, so just update it instead
+			_, err = secrets.Update(secret)
+			if err != nil {
+				return logger.LogError("Unable to save database to secret: %v", err)
+			}
+			logger.Info("Backup updated successfully")
+		} else if err != nil {
+			return logger.LogError("Unable to create database secret: %v", err)
+		}
+		logger.Info("Backup successful")
+
+		return nil
+
+	})
+	if err != nil {
+		logger.Err(err)
 		return
 	}
-	logger.Info("Backup successful")
+
 }

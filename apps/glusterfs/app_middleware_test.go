@@ -48,13 +48,6 @@ func TestBackupToKubeSecretInvalidVerbs(t *testing.T) {
 	}
 	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
 	tests.Assert(t, incluster_count == 0)
-
-	// Try again with another verb
-	r = &http.Request{
-		Method: http.MethodDelete,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
-	tests.Assert(t, incluster_count == 0)
 }
 
 func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
@@ -99,6 +92,15 @@ func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
 	}
 	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
 	tests.Assert(t, incluster_count == 2)
+	tests.Assert(t, config_count == 0)
+	tests.Assert(t, ns_count == 0)
+
+	// Try with Delete verb
+	r = &http.Request{
+		Method: http.MethodDelete,
+	}
+	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	tests.Assert(t, incluster_count == 3)
 	tests.Assert(t, config_count == 0)
 	tests.Assert(t, ns_count == 0)
 }
