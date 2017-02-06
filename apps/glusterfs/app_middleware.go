@@ -10,29 +10,14 @@
 package glusterfs
 
 import (
-	"bytes"
 	"net/http"
 	"strings"
 
-	"github.com/boltdb/bolt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 	"github.com/urfave/negroni"
 
 	"github.com/heketi/heketi/pkg/kubernetes"
-
-	apierrors "k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	"k8s.io/kubernetes/pkg/client/restclient"
-)
-
-var (
-	inClusterConfig = restclient.InClusterConfig
-	newForConfig    = func(c *restclient.Config) (clientset.Interface, error) {
-		return clientset.NewForConfig(c)
-	}
-	getNamespace = kubernetes.GetNamespace
 )
 
 // Authorization function
@@ -62,6 +47,9 @@ func (a *App) BackupToKubernetesSecret(
 	next http.HandlerFunc) {
 
 	// Call the next middleware first
+	// Wrap it in a negroni ResponseWriter because for some reason
+	// the Golang http ResponseWriter does not provide access to
+	// the HttpStatus.
 	responsew := negroni.NewResponseWriter(w)
 	next(responsew, r)
 
@@ -71,78 +59,13 @@ func (a *App) BackupToKubernetesSecret(
 		return
 	}
 
-	// Get Kubernetes configuration
-	kubeConfig, err := inClusterConfig()
-	if err != nil {
-		logger.LogError("Unable to get Kubernetes configuration")
-		return
-	}
-
-	// Get clientset
-	c, err := newForConfig(kubeConfig)
+	// Backup database
+	err := kubernetes.KubeBackupDbToSecret(a.db)
 	if err != nil {
 		logger.Err(err)
-		return
-	}
-
-	// Get namespace
-	ns, err := getNamespace()
-	if err != nil {
-		logger.Err(err)
-		return
-	}
-
-	// Create client for secrets
-	secrets := c.CoreV1().Secrets(ns)
-	if err != nil {
-		logger.Err(err)
-		return
-	}
-
-	// Get a backup
-	err = a.db.View(func(tx *bolt.Tx) error {
-		var backup bytes.Buffer
-		_, err := tx.WriteTo(&backup)
-		if err != nil {
-			return err
-		}
-
-		// Create a secret with backup
-		secret := &v1.Secret{}
-		secret.Kind = "Secret"
-		secret.Namespace = ns
-		secret.APIVersion = "v1"
-		secret.ObjectMeta.Name = "heketi-db-backup"
-		secret.ObjectMeta.Labels = map[string]string{
-			"heketi":    "db",
-			"glusterfs": "heketi-db",
-		}
-		secret.Data = map[string][]byte{
-			"heketi.db": backup.Bytes(),
-		}
-
-		// Submit secret
-		_, err = secrets.Create(secret)
-		if apierrors.IsAlreadyExists(err) {
-			// It already exists, so just update it instead
-			_, err = secrets.Update(secret)
-			if err != nil {
-				return logger.LogError("Unable to save database to secret: %v", err)
-			}
-			logger.Info("Backup updated successfully")
-		} else if err != nil {
-			return logger.LogError("Unable to create database secret: %v", err)
-		}
+	} else {
 		logger.Info("Backup successful")
-
-		return nil
-
-	})
-	if err != nil {
-		logger.Err(err)
-		return
 	}
-
 }
 
 func (a *App) isAsyncDone(
