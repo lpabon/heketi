@@ -7,58 +7,31 @@
 // cases as published by the Free Software Foundation.
 //
 
-package glusterfs
+package kubernetes
 
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/boltdb/bolt"
-	"github.com/heketi/heketi/pkg/utils"
+
 	"github.com/heketi/tests"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
 	fakeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/fake"
 	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
-func init() {
-	logger.SetLevel(utils.LEVEL_NOLOG)
-}
-
-func TestBackupToKubeSecretInvalidVerbs(t *testing.T) {
-	tmpfile := tests.Tempfile()
-	defer os.Remove(tmpfile)
-
-	// Create the app
-	app := NewTestApp(tmpfile)
-	defer app.Close()
-
-	incluster_count := 0
-	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
-		incluster_count++
-		return nil, nil
-	}).Restore()
-
-	// No backup when not POST or PUT
-	r := &http.Request{
-		Method: http.MethodGet,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	tests.Assert(t, incluster_count == 0)
-}
-
 func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
 	tmpfile := tests.Tempfile()
 	defer os.Remove(tmpfile)
 
-	// Create the app
-	app := NewTestApp(tmpfile)
-	defer app.Close()
+	// Create a db
+	db, err := bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
+	defer db.Close()
 
 	incluster_count := 0
 	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
@@ -79,41 +52,93 @@ func TestBackupToKubeSecretFailedClusterConfig(t *testing.T) {
 		return ns, nil
 	}).Restore()
 
-	// Now try with POST verb
-	r := &http.Request{
-		Method: http.MethodPost,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	// Try to backup
+	err = KubeBackupDbToSecret(db)
 	tests.Assert(t, incluster_count == 1)
 	tests.Assert(t, config_count == 0)
 	tests.Assert(t, ns_count == 0)
+	tests.Assert(t, err != nil)
+}
 
-	// Try with PUT verb
-	r = &http.Request{
-		Method: http.MethodPut,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
-	tests.Assert(t, incluster_count == 2)
-	tests.Assert(t, config_count == 0)
-	tests.Assert(t, ns_count == 0)
+func TestBackupToKubeSecretFailedNewConfig(t *testing.T) {
+	tmpfile := tests.Tempfile()
+	defer os.Remove(tmpfile)
 
-	// Try with Delete verb
-	r = &http.Request{
-		Method: http.MethodDelete,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
-	tests.Assert(t, incluster_count == 3)
-	tests.Assert(t, config_count == 0)
+	// Create a db
+	db, err := bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
+	defer db.Close()
+
+	incluster_count := 0
+	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
+		incluster_count++
+		return nil, nil
+	}).Restore()
+
+	config_count := 0
+	defer tests.Patch(&newForConfig, func(c *restclient.Config) (clientset.Interface, error) {
+		config_count++
+		return nil, fmt.Errorf("TEST")
+	}).Restore()
+
+	ns := "default"
+	ns_count := 0
+	defer tests.Patch(&getNamespace, func() (string, error) {
+		ns_count++
+		return ns, nil
+	}).Restore()
+
+	// Try to backup
+	err = KubeBackupDbToSecret(db)
+	tests.Assert(t, incluster_count == 1)
+	tests.Assert(t, config_count == 1)
 	tests.Assert(t, ns_count == 0)
+	tests.Assert(t, err != nil)
+}
+
+func TestBackupToKubeSecretFailedNamespace(t *testing.T) {
+	tmpfile := tests.Tempfile()
+	defer os.Remove(tmpfile)
+
+	// Create a db
+	db, err := bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
+	defer db.Close()
+
+	incluster_count := 0
+	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
+		incluster_count++
+		return nil, nil
+	}).Restore()
+
+	config_count := 0
+	defer tests.Patch(&newForConfig, func(c *restclient.Config) (clientset.Interface, error) {
+		config_count++
+		return nil, nil
+	}).Restore()
+
+	ns_count := 0
+	defer tests.Patch(&getNamespace, func() (string, error) {
+		ns_count++
+		return "", fmt.Errorf("TEST")
+	}).Restore()
+
+	// Try to backup
+	err = KubeBackupDbToSecret(db)
+	tests.Assert(t, incluster_count == 1)
+	tests.Assert(t, config_count == 1)
+	tests.Assert(t, ns_count == 1)
+	tests.Assert(t, err != nil)
 }
 
 func TestBackupToKubeSecretGoodBackup(t *testing.T) {
 	tmpfile := tests.Tempfile()
 	defer os.Remove(tmpfile)
 
-	// Create the app
-	app := NewTestApp(tmpfile)
-	defer app.Close()
+	// Create a db
+	db, err := bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
+	defer db.Close()
 
 	incluster_count := 0
 	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
@@ -134,23 +159,20 @@ func TestBackupToKubeSecretGoodBackup(t *testing.T) {
 		return ns, nil
 	}).Restore()
 
-	// Now try with POST verb
-	r := &http.Request{
-		Method: http.MethodPost,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	err = KubeBackupDbToSecret(db)
 	tests.Assert(t, incluster_count == 1)
 	tests.Assert(t, config_count == 1)
 	tests.Assert(t, ns_count == 1)
+	tests.Assert(t, err == nil)
 }
 
 func TestBackupToKubeSecretVerifyBackup(t *testing.T) {
 	tmpfile := tests.Tempfile()
 	defer os.Remove(tmpfile)
 
-	// Create the app
-	app := NewTestApp(tmpfile)
-	defer app.Close()
+	// Create a db
+	db, err := bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
 
 	incluster_count := 0
 	defer tests.Patch(&inClusterConfig, func() (*restclient.Config, error) {
@@ -173,23 +195,23 @@ func TestBackupToKubeSecretVerifyBackup(t *testing.T) {
 	}).Restore()
 
 	// Add some content to the db
-	c := NewClusterEntryFromRequest()
-	c.NodeAdd("node_abc")
-	c.NodeAdd("node_def")
-	c.VolumeAdd("vol_abc")
-	err := app.db.Update(func(tx *bolt.Tx) error {
-		return c.Save(tx)
+	err = db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte("bucket"))
+		tests.Assert(t, err == nil)
+
+		err = bucket.Put([]byte("key1"), []byte("value1"))
+		tests.Assert(t, err == nil)
+
+		return nil
 	})
 	tests.Assert(t, err == nil)
 
 	// Save to a secret
-	r := &http.Request{
-		Method: http.MethodPost,
-	}
-	app.BackupToKubernetesSecret(nil, r, func(w http.ResponseWriter, r *http.Request) {})
+	err = KubeBackupDbToSecret(db)
 	tests.Assert(t, incluster_count == 1)
 	tests.Assert(t, config_count == 1)
 	tests.Assert(t, ns_count == 1)
+	tests.Assert(t, err == nil)
 
 	// Get the secret
 	secret, err := fakeclient.CoreV1().Secrets(ns).Get("heketi-db-backup")
@@ -202,11 +224,18 @@ func TestBackupToKubeSecretVerifyBackup(t *testing.T) {
 	tests.Assert(t, err == nil)
 
 	// Load new app with backup
-	app2 := NewTestApp(newdb)
-	err = app2.db.View(func(tx *bolt.Tx) error {
-		cluster, err := NewClusterEntryFromId(tx, c.Info.Id)
-		tests.Assert(t, err == nil)
-		tests.Assert(t, cluster != nil)
+	db.Close()
+	db, err = bolt.Open(tmpfile, 0600, &bolt.Options{Timeout: 3 * time.Second})
+	tests.Assert(t, err == nil)
+	defer db.Close()
+
+	err = db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("bucket"))
+		tests.Assert(t, bucket != nil)
+
+		val := bucket.Get([]byte("key1"))
+		tests.Assert(t, val != nil)
+		tests.Assert(t, string(val) == "value1")
 
 		return nil
 	})
