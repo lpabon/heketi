@@ -44,7 +44,7 @@ func (a *App) Auth(w http.ResponseWriter, r *http.Request, next http.HandlerFunc
 	next(w, r)
 }
 
-// Authorization function
+// Backup database to a secret
 func (a *App) BackupToKubernetesSecret(
 	w http.ResponseWriter,
 	r *http.Request,

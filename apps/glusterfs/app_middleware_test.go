@@ -108,7 +108,7 @@ func TestBackupToKubeSecretBackupOnGet(t *testing.T) {
 	app.BackupToKubernetesSecret(w, r, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	tests.Assert(t, incluster_count == 1, incluster_count)
+	tests.Assert(t, incluster_count == 1)
 
 	// Backup when a GET on /queue gets a See Other
 	r = httptest.NewRequest(http.MethodGet, "http://mytest.com"+ASYNC_ROUTE, nil)
@@ -117,5 +117,4 @@ func TestBackupToKubeSecretBackupOnGet(t *testing.T) {
 		w.WriteHeader(http.StatusSeeOther)
 	})
 	tests.Assert(t, incluster_count == 2)
-
 }
