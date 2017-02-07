@@ -23,6 +23,7 @@ import (
 	"github.com/heketi/heketi/executors/sshexec"
 	"github.com/heketi/heketi/pkg/utils"
 	"github.com/heketi/rest"
+	"github.com/urfave/negroni"
 )
 
 const (
@@ -52,7 +53,12 @@ type App struct {
 	xo *mockexec.MockExecutor
 }
 
+// Use for tests only
 func NewApp(configIo io.Reader) *App {
+	return NewAppWithMiddleware(configIo, nil)
+}
+
+func NewAppWithMiddleware(configIo io.Reader, n *negroni.Negroni) *App {
 	app := &App{}
 
 	// Load configuration file
@@ -75,6 +81,9 @@ func NewApp(configIo io.Reader) *App {
 		app.executor = app.xo
 	case app.conf.Executor == "kube" || app.conf.Executor == "kubernetes":
 		app.executor, err = kubeexec.NewKubeExecutor(&app.conf.KubeConfig)
+
+		// Load middleware which backsup database to secret
+		n.UseFunc(app.BackupToKubernetesSecret)
 	case app.conf.Executor == "ssh" || app.conf.Executor == "":
 		app.executor, err = sshexec.NewSshExecutor(&app.conf.SshConfig)
 	default:

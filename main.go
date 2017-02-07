@@ -104,13 +104,18 @@ func main() {
 	// Substitue values using any set environment variables
 	setWithEnvVariables(&options)
 
+	// Use negroni to add middleware.  Here we add two
+	// middlewares: Recovery and Logger, which come with
+	// Negroni
+	n := negroni.New(negroni.NewRecovery(), negroni.NewLogger())
+
 	// Go to the beginning of the file when we pass it
 	// to the application
 	fp.Seek(0, os.SEEK_SET)
 
 	// Setup a new GlusterFS application
 	var app apps.Application
-	glusterfsApp := glusterfs.NewApp(fp)
+	glusterfsApp := glusterfs.NewAppWithMiddleware(fp, n)
 	if glusterfsApp == nil {
 		fmt.Fprintln(os.Stderr, "ERROR: Unable to start application")
 		os.Exit(1)
@@ -135,11 +140,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Use negroni to add middleware.  Here we add two
-	// middlewares: Recovery and Logger, which come with
-	// Negroni
-	n := negroni.New(negroni.NewRecovery(), negroni.NewLogger())
-
 	// Load authorization JWT middleware
 	if options.AuthEnabled {
 		jwtauth := middleware.NewJwtAuth(&options.JwtConfig)
@@ -156,9 +156,6 @@ func main() {
 
 		fmt.Println("Authorization loaded")
 	}
-
-	// TODO: Load only if necessary
-	n.UseFunc(glusterfsApp.BackupToKubernetesSecret)
 
 	// Add all endpoints after the middleware was added
 	n.UseHandler(heketiRouter)
