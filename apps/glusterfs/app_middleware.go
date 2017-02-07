@@ -20,6 +20,10 @@ import (
 	"github.com/heketi/heketi/pkg/kubernetes"
 )
 
+var (
+	kubeBackupDbToSecret = kubernetes.KubeBackupDbToSecret
+)
+
 // Authorization function
 func (a *App) Auth(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 
@@ -60,7 +64,7 @@ func (a *App) BackupToKubernetesSecret(
 	}
 
 	// Backup database
-	err := kubernetes.KubeBackupDbToSecret(a.db)
+	err := kubeBackupDbToSecret(a.db)
 	if err != nil {
 		logger.Err(err)
 	} else {
